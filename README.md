@@ -1,5 +1,3 @@
-/# PROJECT-Secure-telemetry-channel-with-limited-bandwidth
-
 # Проєкт 1: Захищений канал телеметрії з обмеженою пропускною здатністю
 
 **Мова реалізації:** C# (.NET 8.0 / 7.0)  
