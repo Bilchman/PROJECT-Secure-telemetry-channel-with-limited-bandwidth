@@ -1,0 +1,3 @@
+Всі 15 пройшли перевірку помилок не знайдено
+Всього перевірка тестів зайняла 635 ms лише два тести з усіх 15 вкионувалися довше 300 ms 
+а саме Test_Case1_Section7_Reference_Single_Frame_Exact_Match і TelemetryFrame_Serializes_Exactly_To_12_Bytes_BigEndian
