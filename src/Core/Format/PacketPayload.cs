@@ -74,7 +74,6 @@ public sealed record PacketPayload(
         var symbolCount = BinaryPrimitives.ReadUInt32BigEndian(source.Slice(offset, 4));
         offset += 4;
 
-        // Інваріант FORMAT_SPEC.md: symbol_count == 12 * frame_count
         if (symbolCount != 12 * frameCount)
             return (RejectionCode.E_PAYLOAD, null);
 
@@ -88,7 +87,7 @@ public sealed record PacketPayload(
         offset += (int)bitstreamLen;
 
         byte[]? classTable = null;
-        if ((flags & 0x04) != 0) // CLASS_TABLE flag
+        if ((flags & 0x04) != 0)
         {
             if (source.Length < offset + frameCount)
                 return (RejectionCode.E_PAYLOAD, null);
