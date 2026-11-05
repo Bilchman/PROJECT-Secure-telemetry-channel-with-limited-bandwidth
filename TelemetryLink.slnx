@@ -1,7 +1,5 @@
 <Solution>
-  <Folder Name="/results/">
-    <File Path="Huffman_tests_result.md" />
-  </Folder>
+  <Folder Name="/results/" />
   <Folder Name="/src/">
     <Project Path="src/Cli/Cli.csproj" />
     <Project Path="src/Core/Core.csproj" />

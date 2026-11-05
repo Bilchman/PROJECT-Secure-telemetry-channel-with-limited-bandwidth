@@ -14,32 +14,12 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="74e319d9-db68-4605-9cf5-db4199758e14" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/data/session.csv" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/Cli/Program.cs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/Core/Compression/ICompressor.cs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/Core/Compression/NoCompression.cs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/Core/Domain/FrameCandidate.cs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/Core/Domain/FrameClass.cs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/Core/Domain/Packet.cs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/Core/Domain/TelemetryFrame.cs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/Core/Format/BitIO.cs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/Core/Format/CodeTable.cs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/Core/Format/PacketHeader.cs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/Core/Format/ReceiveResult.cs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/Core/InputOutput/TelemetryReader.cs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/Core/Metrics/QualityMetrics.cs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/Core/Optimisation/IOptimizer.cs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/Core/Packing/IPacker.cs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/Core/Packing/SequentialPacker.cs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/Core/Pipeline/SessionRunner.cs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/Core/Prediction/IPredictor.cs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/Core/Prediction/MajorityClassifier.cs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/Core/Scheduling/IScheduler.cs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/Core/Scheduling/SequentialQueue.cs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/Core/Security/ISecurity.cs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/Core/Security/NoSecurity.cs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/Tests/FormatSpecTests.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/.idea.TelemetryLink/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.idea.TelemetryLink/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Huffman_tests_result.md" beforeDir="false" afterPath="$PROJECT_DIR$/results/Huffman_tests_result.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/TelemetryLink.slnx" beforeDir="false" afterPath="$PROJECT_DIR$/TelemetryLink.slnx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/Cli/Cli.csproj" beforeDir="false" afterPath="$PROJECT_DIR$/src/Cli/Cli.csproj" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/Core/Core.csproj" beforeDir="false" afterPath="$PROJECT_DIR$/src/Core/Core.csproj" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/Tests/Tests.csproj" beforeDir="false" afterPath="$PROJECT_DIR$/tests/Tests/Tests.csproj" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -52,6 +32,18 @@
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
+  <component name="GitHubPullRequestSearchHistory"><![CDATA[{
+  "lastFilter": {
+    "state": "OPEN",
+    "assignee": "Bilchman"
+  }
+}]]></component>
+  <component name="GithubPullRequestsUISettings"><![CDATA[{
+  "selectedUrlAndAccountId": {
+    "url": "https://github.com/Bilchman/PROJECT-Secure-telemetry-channel-with-limited-bandwidth.git",
+    "accountId": "1761cb99-a2ba-4822-8f47-efcbcec273cd"
+  }
+}]]></component>
   <component name="McpProjectServerCommands">
     <commands />
     <urls />
@@ -77,7 +69,7 @@
     &quot;RunOnceActivity.typescript.service.memoryLimit.init&quot;: &quot;true&quot;,
     &quot;cidr.known.project.marker&quot;: &quot;true&quot;,
     &quot;codeWithMe.voiceChat.enabledByDefault&quot;: &quot;false&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;feature&quot;,
     &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
     &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
     &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
