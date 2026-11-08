@@ -168,5 +168,68 @@ namespace Tests
                 }
             }
         }
+
+        // Перевірка математичних інваріантів прямого проходу (Forward pass) перцептрона - сума ймовірностей вихідного розподілу Softmax дорівнює 1.0 з точністю до 1e-7,
+        // відсутні значення NaN, а кожна ймовірність лежить у діапазоні [0.0, 1.0]
+        [Fact]
+        public void MultilayerPerceptron_Forward_ReturnsProbabilitiesSummingToOne_WithoutNaN()
+        {
+            // Arrange - створення моделі з фіксованим seed під кількість ознак екстрактора
+            int featureCount = FeatureExtractor.FeatureCount;
+            var mlp = new MultilayerPerceptron(inputSize: featureCount, hiddenSize: 16, outputSize: 3, seed: 42);
+            var inputVector = new double[featureCount];
+            for (int i = 0; i < featureCount; i++)
+            {
+                inputVector[i] = (i % 3 == 0) ? 0.5 : -0.25;
+            }
+
+            // Act - виконання прямого проходу
+            double[] probabilities = mlp.Forward(inputVector);
+
+            // Assert - перевірка розмірності, меж ймовірностей та суми виходу
+            Assert.Equal(3, probabilities.Length);
+            Assert.All(probabilities, p =>
+            {
+                Assert.False(double.IsNaN(p) || double.IsInfinity(p));
+                Assert.InRange(p, 0.0, 1.0);
+            });
+
+            double sum = probabilities[0] + probabilities[1] + probabilities[2];
+            Assert.True(Math.Abs(sum - 1.0) < 1e-7, $"Сума ймовірностей {sum} відрізняється від 1.0.");
+        }
+
+        // Перевірка повторюваності та детермінованості ваг при заданні однакового seed
+        [Fact]
+        public void MultilayerPerceptron_SameSeed_ProducesIdenticalOutputs()
+        {
+            // Arrange
+            int featureCount = FeatureExtractor.FeatureCount;
+            var inputVector = new double[featureCount];
+            Array.Fill(inputVector, 0.1);
+
+            var modelA = new MultilayerPerceptron(inputSize: featureCount, hiddenSize: 16, outputSize: 3, seed: 12345);
+            var modelB = new MultilayerPerceptron(inputSize: featureCount, hiddenSize: 16, outputSize: 3, seed: 12345);
+
+            // Act
+            double[] probsA = modelA.Forward(inputVector);
+            double[] probsB = modelB.Forward(inputVector);
+
+            // Assert
+            Assert.Equal(probsA[0], probsB[0]);
+            Assert.Equal(probsA[1], probsB[1]);
+            Assert.Equal(probsA[2], probsB[2]);
+        }
+
+        // Перевірка контрольованої реакції на невідповідність розмірності вхідного вектора ознак.
+        [Fact]
+        public void MultilayerPerceptron_InvalidInputDimension_ThrowsArgumentException()
+        {
+            // Arrange
+            var mlp = new MultilayerPerceptron(inputSize: 12, hiddenSize: 16, outputSize: 3, seed: 42);
+            var shortVector = new double[5];
+
+            // Act & Assert
+            Assert.Throws<ArgumentException>(() => mlp.Forward(shortVector));
+        }
     }
 }
