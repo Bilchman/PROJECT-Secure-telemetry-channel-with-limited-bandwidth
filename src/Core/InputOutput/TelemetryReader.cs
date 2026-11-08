@@ -10,7 +10,8 @@ public static class TelemetryReader
         for (int i = 1; i < lines.Length; i++)
         {
             var line = lines[i].Trim();
-            if (string.IsNullOrEmpty(line)) continue;
+            if (string.IsNullOrEmpty(line))
+                continue;
 
             var parts = line.Split(',');
             frames.Add(new TelemetryFrame(
