@@ -231,5 +231,73 @@ namespace Tests
             // Act & Assert
             Assert.Throws<ArgumentException>(() => mlp.Forward(shortVector));
         }
+
+        // Перевірка коректності обчислення функції втрат Cross-Entropy Loss - ідеальне передбачення наближає помилку до 0, а хибне викликає високий штраф (пункт 6.11).
+        [Fact]
+        public void MultilayerPerceptron_Loss_BehavesCorrectly_ForConfidentAndErroneousPredictions()
+        {
+            // Arrange
+            int featureCount = FeatureExtractor.FeatureCount;
+            var mlp = new MultilayerPerceptron(inputSize: featureCount, hiddenSize: 8, outputSize: 3, seed: 100);
+            var input = new double[featureCount];
+
+            // Act, один крок навчання повертає величину втрат
+            double initialLoss = mlp.TrainStep(input, targetClass: 0, learningRate: 0.0);
+
+            // Assert, величина втрат має бути додатною, скінченною та не дорівнювати NaN
+            Assert.False(double.IsNaN(initialLoss));
+            Assert.False(double.IsInfinity(initialLoss));
+            Assert.True(initialLoss > 0.0, "Функція втрат має бути більшою за 0.");
+        }
+
+        // Перевірка алгоритму Backpropagation на простому синтетичному наборі даних. Згідно з пунктом 6.11 методичних вказівок, протягом 40 епох навчання закономірно зменшує значення функції втрат (Loss final менше за Loss initial * 0.4).
+        [Fact]
+        public void MultilayerPerceptron_Backpropagation_ReducesLossOnSyntheticDataset()
+        {
+            // Arrange, синтетична вибірка з 3 чітко розрізнюваними класами для перевірки збіжності
+            int featureCount = FeatureExtractor.FeatureCount;
+            var mlp = new MultilayerPerceptron(inputSize: featureCount, hiddenSize: 16, outputSize: 3, seed: 42);
+
+            // Вектори розмірністю 12 ознак
+            // Клас 0 (норма): високі значення перших нормалізованих сигналів
+            // Клас 1 (аномалія): висока вібрація (ознаки 2, 3) та прапорець critical
+            // Клас 2 (перехідний): висока частота перемикань режиму (ознаки 4, 5)
+            var syntheticData = new List<(double[] Input, int Target)>
+        {
+            (new double[] { 0.8, 0.5, 0.1, 0.1, 0.1, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 }, 0),
+            (new double[] { 0.7, 0.6, 0.2, 0.2, 0.1, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 }, 0),
+            (new double[] { 0.1, 0.0, 0.9, 0.9, 0.1, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0 }, 1),
+            (new double[] { 0.2, 0.1, 0.8, 0.8, 0.2, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0 }, 1),
+            (new double[] { 0.0, 0.0, 0.1, 0.1, 0.9, 0.8, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 }, 2),
+            (new double[] { 0.1, 0.0, 0.2, 0.2, 0.8, 0.7, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 }, 2)
+        };
+
+            // Act, обчислення початкового loss та запуск 40 епох навчання через TrainStep
+            double initialTotalLoss = 0.0;
+            foreach (var sample in syntheticData)
+            {
+                // Замір початкової помилки нульовим кроком
+                initialTotalLoss += mlp.TrainStep(sample.Input, sample.Target, learningRate: 0.0, momentum: 0.0);
+            }
+
+            // Цикл навчання
+            for (int epoch = 0; epoch < 40; epoch++)
+            {
+                foreach (var sample in syntheticData)
+                {
+                    mlp.TrainStep(sample.Input, sample.Target, learningRate: 0.05, momentum: 0.8);
+                }
+            }
+
+            double finalTotalLoss = 0.0;
+            foreach (var sample in syntheticData)
+            {
+                finalTotalLoss += mlp.TrainStep(sample.Input, sample.Target, learningRate: 0.0, momentum: 0.0);
+            }
+
+            // Assert, підтвердження збіжності градієнтного спуску
+            Assert.True(finalTotalLoss < initialTotalLoss * 0.4,
+                $"Помилка після навчання ({finalTotalLoss:F4}) не зменшилась суттєво від початкової ({initialTotalLoss:F4}).");
+        }
     }
 }

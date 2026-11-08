@@ -17,6 +17,12 @@ public sealed class MultilayerPerceptron
     private readonly double[][] _w2; // [hidden][output]
     private readonly double[] _b2;   // [output]
 
+    // Буфери накопичення імпульсу для Momentum SGD
+    private readonly double[][] _vW1;
+    private readonly double[] _vB1;
+    private readonly double[][] _vW2;
+    private readonly double[] _vB2;
+
     public MultilayerPerceptron(int inputSize, int hiddenSize = 16, int outputSize = 3, int? seed = null)
     {
         if (inputSize <= 0) throw new ArgumentOutOfRangeException(nameof(inputSize));
@@ -31,6 +37,12 @@ public sealed class MultilayerPerceptron
         _b1 = new double[hiddenSize];
         _w2 = AllocateMatrix(hiddenSize, outputSize);
         _b2 = new double[outputSize];
+
+        // Виділення пам'яті під буфери імпульсу
+        _vW1 = AllocateMatrix(inputSize, hiddenSize);
+        _vB1 = new double[hiddenSize];
+        _vW2 = AllocateMatrix(hiddenSize, outputSize);
+        _vB2 = new double[outputSize];
 
         InitializeWeights(seed);
     }
@@ -63,8 +75,21 @@ public sealed class MultilayerPerceptron
         }
     }
 
-    // Прямий прохід, активація LeakyReLU на прихованому шарі та чисельно стабільний Softmax на виході
+    // Прямий прохід для інференсу повертає розподіл трьох ймовірностей Softmax.
     public double[] Forward(double[] input)
+    {
+        ForwardInternal(input, out _, out _, out _, out double[] probabilities);
+        return probabilities;
+    }
+
+   
+    /// Внутрішній прямий прохід зі збереженням проміжних активацій для Backpropagation.
+    private void ForwardInternal(
+        double[] input,
+        out double[] hiddenNet,
+        out double[] hiddenAct,
+        out double[] outputNet,
+        out double[] probabilities)
     {
         ArgumentNullException.ThrowIfNull(input);
         if (input.Length != _inputSize)
@@ -72,8 +97,9 @@ public sealed class MultilayerPerceptron
             throw new ArgumentException($"Очікувалось {_inputSize} ознак, отримано {input.Length}.");
         }
 
-        //Прихований шар із лінійним зважуванням та LeakyReLU
-        var hiddenAct = new double[_hiddenSize];
+        // Прихований шар із лінійним зважуванням та LeakyReLU
+        hiddenNet = new double[_hiddenSize];
+        hiddenAct = new double[_hiddenSize];
         for (int j = 0; j < _hiddenSize; j++)
         {
             double sum = _b1[j];
@@ -81,11 +107,12 @@ public sealed class MultilayerPerceptron
             {
                 sum += input[i] * _w1[i][j];
             }
+            hiddenNet[j] = sum;
             hiddenAct[j] = sum >= 0.0 ? sum : LeakySlope * sum;
         }
 
-        //Вихідний шар для обчислення лінійних комбінацій та пошук maxNet
-        var outputNet = new double[_outputSize];
+        // Вихідний шар, обчислення лінійних сум та пошук maxNet
+        outputNet = new double[_outputSize];
         double maxNet = double.NegativeInfinity;
         for (int k = 0; k < _outputSize; k++)
         {
@@ -101,8 +128,8 @@ public sealed class MultilayerPerceptron
             }
         }
 
-        //Чисельно стабільний Softmax exp(z_k - maxNet)
-        var probabilities = new double[_outputSize];
+        // Захищений від переповнення Softmax: exp(z_k - maxNet)
+        probabilities = new double[_outputSize];
         double sumExp = 0.0;
         for (int k = 0; k < _outputSize; k++)
         {
@@ -111,13 +138,84 @@ public sealed class MultilayerPerceptron
             sumExp += exp;
         }
 
-        // Нормалізація ймовірностей (сума строго прямує до 1.0)
         for (int k = 0; k < _outputSize; k++)
         {
             probabilities[k] /= sumExp;
         }
+    }
 
-        return probabilities;
+    // Один крок навчання на окремому прикладі методом Backpropagation (пункт 4.11).
+    // Обчислює Cross-Entropy Loss, аналітичні градієнти та оновлює ваги через Momentum SGD.
+    public double TrainStep(double[] input, int targetClass, double learningRate = 0.05, double momentum = 0.9)
+    {
+        if (targetClass < 0 || targetClass >= _outputSize)
+        {
+            throw new ArgumentOutOfRangeException(nameof(targetClass), $"Цільовий клас має бути в межах 0..{_outputSize - 1}");
+        }
+
+        // Прямий прохід зі збереженням проміжних станів
+        ForwardInternal(input, out double[] hiddenNet, out double[] hiddenAct, out _, out double[] probs);
+
+        // Cross-Entropy Loss з константою 1e-15 для захисту від ln(0)
+        double loss = -Math.Log(Math.Max(probs[targetClass], 1e-15));
+
+        // Градієнт вихідного шару для зв'язки Softmax + Cross-Entropy: dL/dz_out = (p_k - y_k)
+        var deltaOutput = new double[_outputSize];
+        for (int k = 0; k < _outputSize; k++)
+        {
+            deltaOutput[k] = probs[k] - (k == targetClass ? 1.0 : 0.0);
+        }
+
+        // Градієнт прихованого шару: dL/dz_hid = (deltaOutput * W2) * LeakyReLU'(hiddenNet)
+        var deltaHidden = new double[_hiddenSize];
+        for (int j = 0; j < _hiddenSize; j++)
+        {
+            double sumErr = 0.0;
+            for (int k = 0; k < _outputSize; k++)
+            {
+                sumErr += deltaOutput[k] * _w2[j][k];
+            }
+            double dActivation = hiddenNet[j] >= 0.0 ? 1.0 : LeakySlope;
+            deltaHidden[j] = sumErr * dActivation;
+        }
+
+        // Оновлення ваг W2 та зсувів B2 вихідного шару (Momentum SGD)
+        for (int j = 0; j < _hiddenSize; j++)
+        {
+            for (int k = 0; k < _outputSize; k++)
+            {
+                double grad = deltaOutput[k] * hiddenAct[j];
+                _vW2[j][k] = momentum * _vW2[j][k] - learningRate * grad;
+                _w2[j][k] += _vW2[j][k];
+            }
+        }
+
+        for (int k = 0; k < _outputSize; k++)
+        {
+            double grad = deltaOutput[k];
+            _vB2[k] = momentum * _vB2[k] - learningRate * grad;
+            _b2[k] += _vB2[k];
+        }
+
+        // Оновлення ваг W1 та зсувів B1 прихованого шару (Momentum SGD)
+        for (int i = 0; i < _inputSize; i++)
+        {
+            for (int j = 0; j < _hiddenSize; j++)
+            {
+                double grad = deltaHidden[j] * input[i];
+                _vW1[i][j] = momentum * _vW1[i][j] - learningRate * grad;
+                _w1[i][j] += _vW1[i][j];
+            }
+        }
+
+        for (int j = 0; j < _hiddenSize; j++)
+        {
+            double grad = deltaHidden[j];
+            _vB1[j] = momentum * _vB1[j] - learningRate * grad;
+            _b1[j] += _vB1[j];
+        }
+
+        return loss;
     }
 
     private static double[][] AllocateMatrix(int rows, int cols)
