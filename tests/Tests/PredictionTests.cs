@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Core.Prediction;
+using System;
 using System.Collections.Generic;
 using System.Text;
 using Core;
@@ -105,6 +106,67 @@ namespace Tests
             Assert.Equal(2, classes.Length);
             Assert.Equal(FrameClass.Normal, classes[0]);
             Assert.Equal(FrameClass.Normal, classes[1]);
+        }
+
+        //Перевірка коректності вилучення ознак на реальному сеансі телеметрії
+        [Fact]
+        public void FeatureExtractor_ProcessSessionCsv_ProducesValidFeaturesWithoutNaN()
+        {            
+            string? currentDir = AppContext.BaseDirectory;
+            string sessionPath = string.Empty;
+
+            while (currentDir != null)
+            {
+                string candidate = Path.Combine(currentDir, "data", "session.csv");
+                if (File.Exists(candidate))
+                {
+                    sessionPath = candidate;
+                    break;
+                }
+                currentDir = Directory.GetParent(currentDir)?.FullName;
+            }
+
+            Assert.True(File.Exists(sessionPath), $"Файл session.csv не знайдено за шляхом: {sessionPath}");
+
+            // Зчитування кадрів сеансу телеметрії (обхід заголовка CSV-таблиці)
+            var frames = new List<TelemetryFrame>();
+            using (var reader = new StreamReader(sessionPath))
+            {
+                reader.ReadLine(); // Пропуск заголовока
+                string? line;
+                while ((line = reader.ReadLine()) != null)
+                {
+                    if (string.IsNullOrWhiteSpace(line)) continue;
+                    var parts = line.Split(',');
+                    frames.Add(new TelemetryFrame(
+                        uint.Parse(parts[0]),
+                        short.Parse(parts[1]),
+                        short.Parse(parts[2]),
+                        short.Parse(parts[3]),
+                        byte.Parse(parts[4]),
+                        byte.Parse(parts[5])));
+                }
+            }
+
+            Assert.NotEmpty(frames);
+
+            // Ініціалізація генератора з рекомендованим розміром вікна k = 8
+            var extractor = new FeatureExtractor(windowSize: 8);
+            var history = new List<TelemetryFrame>();
+
+            foreach (var frame in frames)
+            {
+                double[] features = extractor.ExtractFeatures(history, frame);
+
+                Assert.Equal(FeatureExtractor.FeatureCount, features.Length);
+                Assert.All(features, val => Assert.False(double.IsNaN(val) || double.IsInfinity(val)));
+
+                history.Add(frame);
+                if (history.Count > 8)
+                {
+                    history.RemoveAt(0);
+                }
+            }
         }
     }
 }
