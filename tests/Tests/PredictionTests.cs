@@ -470,5 +470,52 @@ namespace Tests
             Assert.False(double.IsNaN(metrics.MacroF1));
             Assert.All(metrics.F1PerClass, f1 => Assert.False(double.IsNaN(f1)));
         }
+
+        // Перевірка потокової класифікації кадру перцептроном через PerceptronClassifier        
+        [Fact]
+        public void PerceptronClassifier_Classify_AssignsValidFrameClasses()
+        {
+            // Arrange
+            int featureCount = FeatureExtractor.FeatureCount;
+            var mlp = new MultilayerPerceptron(featureCount, hiddenSize: 16, outputSize: 3, seed: 42);
+            var classifier = new PerceptronClassifier(mlp);
+
+            var frames = new List<TelemetryFrame>
+        {
+            new TelemetryFrame(0, 1000, 200, 0, 1, 0),
+            new TelemetryFrame(100, 1002, 201, 10, 1, 0),
+            new TelemetryFrame(200, 1005, 202, -5, 2, 1)
+        };
+
+            // Act
+            FrameClass[] classes = classifier.Classify(frames);
+
+            // Assert
+            Assert.Equal(frames.Count, classes.Length);
+            Assert.All(classes, c => Assert.True(Enum.IsDefined(typeof(FrameClass), c)));
+        }
+
+        // Перевірка формули цінності кадру для рюкзака, пріоритет класу + critical_bonus.
+        [Fact]
+        public void PerceptronClassifier_CalculateFrameValue_AppliesCriticalBonusCorrectly()
+        {
+            // Arrange
+            var priorities = new Dictionary<FrameClass, int>
+        {
+            { FrameClass.Normal, 10 },
+            { FrameClass.Anomaly, 50 },
+            { FrameClass.Transition, 30 }
+        };
+            const int criticalBonus = 100;
+
+            // Act & Assert. Нормальний некритичний кадр
+            int valNormal = PerceptronClassifier.CalculateFrameValue(FrameClass.Normal, critical: 0, priorities, criticalBonus);
+            Assert.Equal(10, valNormal);
+
+            // Аномальний критичний кадр
+            int valAnomalyCrit = PerceptronClassifier.CalculateFrameValue(FrameClass.Anomaly, critical: 1, priorities, criticalBonus);
+            Assert.Equal(150, valAnomalyCrit);
+        }
+
     }
 }
