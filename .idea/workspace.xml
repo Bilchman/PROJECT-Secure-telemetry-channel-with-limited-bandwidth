@@ -1,0 +1,220 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="CMakeProjectFlavorService">
+    <option name="flavorId" value="CMakePlainProjectFlavor" />
+  </component>
+  <component name="CMakeSettings">
+    <configurations />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="0cc47588-db7e-4f52-9330-23576530c140" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/data/session.csv" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/Cli/Program.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/Core/Channel/IChannel.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/Core/Compression/ICompressor.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/Core/Compression/NoCompression.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/Core/Domain/FrameCandidate.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/Core/Domain/FrameClass.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/Core/Domain/Packet.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/Core/Domain/TelemetryFrame.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/Core/Format/BitIO.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/Core/Format/CodeTable.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/Core/Format/PacketHeader.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/Core/Format/PacketPayload.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/Core/Format/ReceiveResult.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/Core/InputOutput/TelemetryReader.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/Core/Metrics/QualityMetrics.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/Core/Optimisation/IOptimizer.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/Core/Packing/IPacker.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/Core/Packing/SequentialPacker.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/Core/Pipeline/SessionRunner.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/Core/Prediction/IPredictor.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/Core/Prediction/MajorityClassifier.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/Core/Scheduling/IScheduler.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/Core/Scheduling/SequentialQueue.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/Core/Security/ISecurity.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/Core/Security/NoSecurity.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/Tests/FormatSpecTests.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="EmbeddingIndexingInfo">
+    <option name="cachedIndexableFilesCount" value="247" />
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="HighlightingSettingsPerFile">
+    <setting file="file://$PROJECT_DIR$/src/Cli/Program.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/src/Core/Channel/IChannel.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/src/Core/Compression/ICompressor.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/src/Core/Compression/NoCompression.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/src/Core/Domain/FrameCandidate.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/src/Core/Domain/FrameClass.cs" root0="SKIP_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/src/Core/Domain/Packet.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/src/Core/Domain/TelemetryFrame.cs" root0="SKIP_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/src/Core/Format/BitIO.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/src/Core/Format/CodeTable.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/src/Core/Format/PacketHeader.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/src/Core/Format/PacketPayload.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/src/Core/Format/ReceiveResult.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/src/Core/InputOutput/TelemetryReader.cs" root0="SKIP_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/src/Core/Metrics/QualityMetrics.cs" root0="SKIP_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/src/Core/Optimisation/IOptimizer.cs" root0="SKIP_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/src/Core/Packing/IPacker.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/src/Core/Packing/SequentialPacker.cs" root0="SKIP_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/src/Core/Pipeline/SessionRunner.cs" root0="SKIP_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/src/Core/Prediction/IPredictor.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/src/Core/Prediction/MajorityClassifier.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/src/Core/Scheduling/IScheduler.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/src/Core/Scheduling/SequentialQueue.cs" root0="SKIP_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/src/Core/Security/ISecurity.cs" root0="SKIP_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/src/Core/Security/NoSecurity.cs" root0="SKIP_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/tests/Tests/FormatSpecTests.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/tests/Tests/UnitTest1.cs" root0="SKIP_HIGHLIGHTING" />
+  </component>
+  <component name="McpProjectServerCommands">
+    <commands />
+    <urls />
+  </component>
+  <component name="MetaFilesCheckinStateConfiguration" checkMetaFiles="true" />
+  <component name="NextEditCompletionFeaturesState">
+    <decayedCancelled>
+      <entry key="MS100" value="1.0000286719588993" />
+      <entry key="MS500" value="1.1234501076806716" />
+      <entry key="S2" value="1.5927517819894597" />
+      <entry key="S5" value="1.8112396095238643" />
+      <entry key="S10" value="1.9007069415218791" />
+      <entry key="S30" value="2.257012635728755" />
+      <entry key="S60" value="5.681014594640397" />
+      <entry key="M2" value="15.86604978036089" />
+      <entry key="M5" value="36.94036429606742" />
+      <entry key="M10" value="57.2580935819238" />
+      <entry key="M15" value="69.85870841358414" />
+      <entry key="M30" value="89.00727343156755" />
+      <entry key="H1" value="102.53426876345821" />
+      <entry key="H2" value="110.69365126895146" />
+      <entry key="H4" value="115.19168741797945" />
+      <entry key="D1" value="119.17598180151515" />
+      <entry key="W1" value="119.88171405447552" />
+    </decayedCancelled>
+    <decayedSelected>
+      <entry key="MS100" value="0.0" />
+      <entry key="MS500" value="0.0" />
+      <entry key="S2" value="1.5566485853171094E-119" />
+      <entry key="S5" value="2.9983079239756456E-48" />
+      <entry key="S10" value="1.7315622783993774E-24" />
+      <entry key="S30" value="1.2008240354897434E-8" />
+      <entry key="S60" value="1.0958212325840815E-4" />
+      <entry key="M2" value="0.010470659701292916" />
+      <entry key="M5" value="0.1671709789615824" />
+      <entry key="M10" value="0.4776249836757575" />
+      <entry key="M15" value="0.7236797512451865" />
+      <entry key="M30" value="1.161208345751636" />
+      <entry key="H1" value="1.5096345264593678" />
+      <entry key="H2" value="1.7334413271431706" />
+      <entry key="H4" value="1.8608357151061958" />
+      <entry key="D1" value="1.9759379455122075" />
+      <entry key="W1" value="1.99654061120369" />
+    </decayedSelected>
+    <decayedShown>
+      <entry key="MS100" value="0.9395495010975969" />
+      <entry key="MS500" value="1.1093513950132776" />
+      <entry key="S2" value="1.5875867138358386" />
+      <entry key="S5" value="1.8088688848778824" />
+      <entry key="S10" value="1.8994591955973068" />
+      <entry key="S30" value="2.256509405336376" />
+      <entry key="S60" value="5.680463986956717" />
+      <entry key="M2" value="15.875344426667374" />
+      <entry key="M5" value="37.10496954665107" />
+      <entry key="M10" value="57.73261709125442" />
+      <entry key="M15" value="70.5794228021414" />
+      <entry key="M30" value="90.16624743293838" />
+      <entry key="H1" value="104.04250116129002" />
+      <entry key="H2" value="112.42630239429447" />
+      <entry key="H4" value="117.05210300261781" />
+      <entry key="D1" value="121.15184598750064" />
+      <entry key="W1" value="121.8782440334465" />
+    </decayedShown>
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;customColor&quot;: &quot;&quot;,
+  &quot;associatedIndex&quot;: 1
+}</component>
+  <component name="ProjectId" id="3KvJLwZ1T1rURwQerrd7E96aJTO" />
+  <component name="ProjectLevelVcsManager">
+    <ConfirmationsSetting value="2" id="Add" />
+  </component>
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;.NET Executable.Unnamed.executor&quot;: &quot;Run&quot;,
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.MCP Project settings loaded&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.cidr.known.project.marker&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.readMode.enableVisualFormatting&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.typescript.service.memoryLimit.init&quot;: &quot;true&quot;,
+    &quot;cidr.known.project.marker&quot;: &quot;true&quot;,
+    &quot;codeWithMe.voiceChat.enabledByDefault&quot;: &quot;false&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;ml.llm.AcpAgentsConfigurable&quot;
+  }
+}</component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="0cc47588-db7e-4f52-9330-23576530c140" name="Changes" comment="" />
+      <created>1792432058646</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1792432058646</updated>
+    </task>
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+  <component name="UnityCheckinConfiguration" checkUnsavedScenes="true" />
+  <component name="UnityProjectConfiguration" hasMinimizedUI="false" />
+  <component name="VcsManagerConfiguration">
+    <option name="CLEAR_INITIAL_COMMIT_MESSAGE" value="true" />
+  </component>
+  <component name="XDebuggerManager">
+    <breakpoint-manager>
+      <breakpoints>
+        <breakpoint enabled="true" type="DotNet_Exception_Breakpoints">
+          <properties exception="System.OperationCanceledException" breakIfHandledByOtherCode="false" displayValue="System.OperationCanceledException" />
+          <option name="timeStamp" value="1" />
+        </breakpoint>
+        <breakpoint enabled="true" type="DotNet_Exception_Breakpoints">
+          <properties exception="System.Threading.Tasks.TaskCanceledException" breakIfHandledByOtherCode="false" displayValue="System.Threading.Tasks.TaskCanceledException" />
+          <option name="timeStamp" value="2" />
+        </breakpoint>
+        <breakpoint enabled="true" type="DotNet_Exception_Breakpoints">
+          <properties exception="System.Threading.ThreadAbortException" breakIfHandledByOtherCode="false" displayValue="System.Threading.ThreadAbortException" />
+          <option name="timeStamp" value="3" />
+        </breakpoint>
+      </breakpoints>
+    </breakpoint-manager>
+  </component>
+  <component name="XSLT-Support.FileAssociations.UIState">
+    <expand />
+    <select />
+  </component>
+</project>

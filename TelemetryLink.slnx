@@ -1,4 +1,5 @@
 <Solution>
+  <Folder Name="/results/" />
   <Folder Name="/src/">
     <Project Path="src/Cli/Cli.csproj" />
     <Project Path="src/Core/Core.csproj" />
