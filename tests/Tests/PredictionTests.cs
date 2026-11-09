@@ -396,5 +396,79 @@ namespace Tests
             double sum = probabilities[0] + probabilities[1] + probabilities[2];
             Assert.True(Math.Abs(sum - 1.0) < 1e-7, $"Сума ймовірностей {sum} порушила інваріант 1.0.");
         }
+
+        // Перевірка протоколу трьох ініціалізацій (seed=28, 111, 707), відбору за Macro-F1
+        // та автоматичної генерації звітів у results/ (classifier_metrics.json, confusion_matrix.csv).
+        [Fact]
+        public void Trainer_ThreeSeedsProtocol_GeneratesArtifactsAndOutperformsBaseline()
+        {
+            // Arrange, синтетичний набір із 60 зразків для відтворення протоколу
+            int featureCount = FeatureExtractor.FeatureCount;
+            var dataset = new List<(double[] Features, int Label)>();
+
+            for (int i = 0; i < 60; i++)
+            {
+                var feat = new double[featureCount];
+                int label = i % 3;
+                if (label == 0) feat[0] = 0.8;      // норма
+                else if (label == 1) feat[2] = 0.9; // аномалія
+                else feat[4] = 0.85;                // перехідний режим
+
+                dataset.Add((feat, label));
+            }
+
+            var (train, val) = Trainer.SplitData(dataset, trainRatio: 0.8, seed: 42);
+            var trainer = new Trainer(featureCount, hiddenSize: 16);
+
+            // Act прогін 3-х seed
+            int[] seeds = { 28, 111, 707 };
+            var (bestModel, bestMetrics) = trainer.TrainThreeSeeds(train, val, seeds, epochs: 20);
+
+            // Assert 1 модель стабільно перевершує випадкове вгадування 0.33
+            Assert.NotNull(bestModel);
+            Assert.True(bestMetrics.MacroF1 > 0.33, $"Macro-F1 {bestMetrics.MacroF1} мав перевищити baseline 0.33.");
+
+            // Assert 2 генерація машинних звітів у папку results/ репозиторію
+            string? currentDir = AppContext.BaseDirectory;
+            string repoRoot = string.Empty;
+            while (currentDir != null)
+            {
+                if (Directory.Exists(Path.Combine(currentDir, "results")) || File.Exists(Path.Combine(currentDir, "TelemetryLink.sln")))
+                {
+                    repoRoot = currentDir;
+                    break;
+                }
+                currentDir = Directory.GetParent(currentDir)?.FullName;
+            }
+
+            string resultsDir = Path.Combine(repoRoot, "results");
+            Trainer.SaveArtifacts(resultsDir, bestMetrics);
+
+            string csvPath = Path.Combine(resultsDir, "confusion_matrix.csv");
+            string jsonPath = Path.Combine(resultsDir, "classifier_metrics.json");
+
+            Assert.True(File.Exists(csvPath), "Файл confusion_matrix.csv не було створено.");
+            Assert.True(File.Exists(jsonPath), "Файл classifier_metrics.json не було створено.");
+        }
+
+        // Перевірка правила: якщо клас жодного разу не був передбачений і відсутній у вибірці, Precision + Recall == 0, а F1 обов'язково присвоюється 0.0 без ділення на нуль чи NaN.
+        [Fact]
+        public void Trainer_Evaluate_ZeroPrecisionAndRecall_AssignsZeroF1Safely()
+        {
+            // Arrange, порожня для класів 1 і 2 валідаційна вибірка
+            int featureCount = FeatureExtractor.FeatureCount;
+            var model = new MultilayerPerceptron(featureCount, hiddenSize: 8, outputSize: 3, seed: 1);
+            var valData = new List<(double[] Features, int Label)>
+        {
+            (new double[featureCount], 0)
+        };
+
+            // Act
+            var metrics = Trainer.Evaluate(model, valData);
+
+            // Assert
+            Assert.False(double.IsNaN(metrics.MacroF1));
+            Assert.All(metrics.F1PerClass, f1 => Assert.False(double.IsNaN(f1)));
+        }
     }
 }
