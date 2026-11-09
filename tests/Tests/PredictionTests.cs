@@ -299,5 +299,102 @@ namespace Tests
             Assert.True(finalTotalLoss < initialTotalLoss * 0.4,
                 $"Помилка після навчання ({finalTotalLoss:F4}) не зменшилась суттєво від початкової ({initialTotalLoss:F4}).");
         }
+
+        // Перевірка градієнтів методом чисельного диференціювання відповідно до п. 6.11 методичних вказівок
+        // Порівнює аналітичний градієнт Backpropagation із центральною скінченною різницею grad_num = (Loss(w + eps) - Loss(w - eps)) / (2 * eps).
+        [Fact]
+        public void MultilayerPerceptron_NumericalGradientChecking_MatchesAnalyticalGradients()
+        {
+            // Arrange, ініціалізація моделі та вектора ознак
+            int featureCount = FeatureExtractor.FeatureCount;
+            var mlp = new MultilayerPerceptron(inputSize: featureCount, hiddenSize: 8, outputSize: 3, seed: 12345);
+            var input = new double[featureCount];
+            for (int i = 0; i < featureCount; i++)
+            {
+                input[i] = (i % 2 == 0) ? 0.4 : -0.3;
+            }
+
+            int targetClass = 1;
+            const double epsilon = 1e-5;
+            const double maxAllowedRelativeError = 1e-4; // допустима похибка 0.01%
+
+            // Розрахунок точних аналітичних градієнтів через зворотне поширення
+            mlp.ComputeGradients(input, targetClass, out var gradW1, out _, out var gradW2, out _);
+
+            // Act & Assert 1. Перевірка градієнта ваги вихідного шару W2[j, k]
+            int testHiddenIdx = 2;
+            int testOutputIdx = 1;
+            double originalW2 = mlp.GetWeightW2(testHiddenIdx, testOutputIdx);
+
+            // Обчислення Loss(w + eps)
+            mlp.SetWeightW2(testHiddenIdx, testOutputIdx, originalW2 + epsilon);
+            double lossPlusW2 = mlp.ComputeLoss(input, targetClass);
+
+            // Обчислення Loss(w - eps)
+            mlp.SetWeightW2(testHiddenIdx, testOutputIdx, originalW2 - epsilon);
+            double lossMinusW2 = mlp.ComputeLoss(input, targetClass);
+
+            // Відновлення оригінальної ваги
+            mlp.SetWeightW2(testHiddenIdx, testOutputIdx, originalW2);
+
+            double numericalGradW2 = (lossPlusW2 - lossMinusW2) / (2.0 * epsilon);
+            double analyticalGradW2 = gradW2[testHiddenIdx][testOutputIdx];
+
+            double relativeErrorW2 = Math.Abs(numericalGradW2 - analyticalGradW2) / (Math.Max(Math.Abs(numericalGradW2), Math.Abs(analyticalGradW2)) + 1e-8);
+
+            Assert.True(relativeErrorW2 < maxAllowedRelativeError,
+                $"W2 Gradient Check Failed: relError={relativeErrorW2:E3}, num={numericalGradW2:F6}, ana={analyticalGradW2:F6}");
+
+            // Act & Assert 2. Перевірка градієнта ваги прихованого шару W1[i, j]
+            int testInputIdx = 3;
+            double originalW1 = mlp.GetWeightW1(testInputIdx, testHiddenIdx);
+
+            mlp.SetWeightW1(testInputIdx, testHiddenIdx, originalW1 + epsilon);
+            double lossPlusW1 = mlp.ComputeLoss(input, targetClass);
+
+            mlp.SetWeightW1(testInputIdx, testHiddenIdx, originalW1 - epsilon);
+            double lossMinusW1 = mlp.ComputeLoss(input, targetClass);
+
+            mlp.SetWeightW1(testInputIdx, testHiddenIdx, originalW1);
+
+            double numericalGradW1 = (lossPlusW1 - lossMinusW1) / (2.0 * epsilon);
+            double analyticalGradW1 = gradW1[testInputIdx][testHiddenIdx];
+
+            double relativeErrorW1 = Math.Abs(numericalGradW1 - analyticalGradW1) / (Math.Max(Math.Abs(numericalGradW1), Math.Abs(analyticalGradW1)) + 1e-8);
+
+            Assert.True(relativeErrorW1 < maxAllowedRelativeError,
+                $"W1 Gradient Check Failed: relError={relativeErrorW1:E3}, num={numericalGradW1:F6}, ana={analyticalGradW1:F6}");
+        }
+
+        // Стрес-тест підтвердження того, що екстремально великі вхідні значення не спричиняють переповнення типів з плаваючою комою у NaN або Infinity.
+        [Fact]
+        public void MultilayerPerceptron_ExtremeInputValues_MaintainsNumericalStability()
+        {
+            // Arrange
+            int featureCount = FeatureExtractor.FeatureCount;
+            var mlp = new MultilayerPerceptron(inputSize: featureCount, hiddenSize: 16, outputSize: 3, seed: 42);
+
+            // Вектор з екстремальними величинами (ризик переповнення exp(z))
+            var extremeInput = new double[featureCount];
+            for (int i = 0; i < featureCount; i++)
+            {
+                extremeInput[i] = (i % 2 == 0) ? 500.0 : -500.0;
+            }
+
+            // Act
+            double[] probabilities = mlp.Forward(extremeInput);
+
+            // Assert
+            Assert.Equal(3, probabilities.Length);
+            Assert.All(probabilities, p =>
+            {
+                Assert.False(double.IsNaN(p));
+                Assert.False(double.IsInfinity(p));
+                Assert.InRange(p, 0.0, 1.0);
+            });
+
+            double sum = probabilities[0] + probabilities[1] + probabilities[2];
+            Assert.True(Math.Abs(sum - 1.0) < 1e-7, $"Сума ймовірностей {sum} порушила інваріант 1.0.");
+        }
     }
 }

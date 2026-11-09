@@ -153,70 +153,44 @@ public sealed class MultilayerPerceptron
             throw new ArgumentOutOfRangeException(nameof(targetClass), $"Цільовий клас має бути в межах 0..{_outputSize - 1}");
         }
 
-        // Прямий прохід зі збереженням проміжних станів
-        ForwardInternal(input, out double[] hiddenNet, out double[] hiddenAct, out _, out double[] probs);
+        ComputeGradients(input, targetClass, out var gradW1, out var gradB1, out var gradW2, out var gradB2);
+        double loss = ComputeLoss(input, targetClass);
 
-        // Cross-Entropy Loss з константою 1e-15 для захисту від ln(0)
-        double loss = -Math.Log(Math.Max(probs[targetClass], 1e-15));
-
-        // Градієнт вихідного шару для зв'язки Softmax + Cross-Entropy: dL/dz_out = (p_k - y_k)
-        var deltaOutput = new double[_outputSize];
-        for (int k = 0; k < _outputSize; k++)
-        {
-            deltaOutput[k] = probs[k] - (k == targetClass ? 1.0 : 0.0);
-        }
-
-        // Градієнт прихованого шару: dL/dz_hid = (deltaOutput * W2) * LeakyReLU'(hiddenNet)
-        var deltaHidden = new double[_hiddenSize];
-        for (int j = 0; j < _hiddenSize; j++)
-        {
-            double sumErr = 0.0;
-            for (int k = 0; k < _outputSize; k++)
-            {
-                sumErr += deltaOutput[k] * _w2[j][k];
-            }
-            double dActivation = hiddenNet[j] >= 0.0 ? 1.0 : LeakySlope;
-            deltaHidden[j] = sumErr * dActivation;
-        }
-
-        // Оновлення ваг W2 та зсувів B2 вихідного шару (Momentum SGD)
+        // Оновлення ваг W2 та зсувів B2 вихідного шару
         for (int j = 0; j < _hiddenSize; j++)
         {
             for (int k = 0; k < _outputSize; k++)
             {
-                double grad = deltaOutput[k] * hiddenAct[j];
-                _vW2[j][k] = momentum * _vW2[j][k] - learningRate * grad;
+                _vW2[j][k] = momentum * _vW2[j][k] - learningRate * gradW2[j][k];
                 _w2[j][k] += _vW2[j][k];
             }
         }
 
         for (int k = 0; k < _outputSize; k++)
         {
-            double grad = deltaOutput[k];
-            _vB2[k] = momentum * _vB2[k] - learningRate * grad;
+            _vB2[k] = momentum * _vB2[k] - learningRate * gradB2[k];
             _b2[k] += _vB2[k];
         }
 
-        // Оновлення ваг W1 та зсувів B1 прихованого шару (Momentum SGD)
+        // Оновлення ваг W1 та зсувів B1 прихованого шару
         for (int i = 0; i < _inputSize; i++)
         {
             for (int j = 0; j < _hiddenSize; j++)
             {
-                double grad = deltaHidden[j] * input[i];
-                _vW1[i][j] = momentum * _vW1[i][j] - learningRate * grad;
+                _vW1[i][j] = momentum * _vW1[i][j] - learningRate * gradW1[i][j];
                 _w1[i][j] += _vW1[i][j];
             }
         }
 
         for (int j = 0; j < _hiddenSize; j++)
         {
-            double grad = deltaHidden[j];
-            _vB1[j] = momentum * _vB1[j] - learningRate * grad;
+            _vB1[j] = momentum * _vB1[j] - learningRate * gradB1[j];
             _b1[j] += _vB1[j];
         }
 
         return loss;
     }
+
 
     private static double[][] AllocateMatrix(int rows, int cols)
     {
@@ -227,4 +201,72 @@ public sealed class MultilayerPerceptron
         }
         return matrix;
     }
+
+    // Обчислення значення функції втрат Cross-Entropy без зміни ваг моделі.
+    public double ComputeLoss(double[] input, int targetClass)
+    {
+        double[] probs = Forward(input);
+        return -Math.Log(Math.Max(probs[targetClass], 1e-15));
+    }
+
+    // Аналітичний розрахунок градієнтів функції втрат методом Backpropagation (пункт 4.11).
+    public void ComputeGradients(
+        double[] input,
+        int targetClass,
+        out double[][] gradW1,
+        out double[] gradB1,
+        out double[][] gradW2,
+        out double[] gradB2)
+    {
+        ForwardInternal(input, out double[] hiddenNet, out double[] hiddenAct, out _, out double[] probs);
+
+        gradW2 = AllocateMatrix(_hiddenSize, _outputSize);
+        gradB2 = new double[_outputSize];
+        gradW1 = AllocateMatrix(_inputSize, _hiddenSize);
+        gradB1 = new double[_hiddenSize];
+
+        // Градієнт вихідного шару dL/dz_out = (probs[k] - target)
+        var deltaOutput = new double[_outputSize];
+        for (int k = 0; k < _outputSize; k++)
+        {
+            deltaOutput[k] = probs[k] - (k == targetClass ? 1.0 : 0.0);
+            gradB2[k] = deltaOutput[k];
+        }
+
+        for (int j = 0; j < _hiddenSize; j++)
+        {
+            for (int k = 0; k < _outputSize; k++)
+            {
+                gradW2[j][k] = deltaOutput[k] * hiddenAct[j];
+            }
+        }
+
+        // Градієнт прихованого шару з урахуванням похідної LeakyReLU
+        var deltaHidden = new double[_hiddenSize];
+        for (int j = 0; j < _hiddenSize; j++)
+        {
+            double sumErr = 0.0;
+            for (int k = 0; k < _outputSize; k++)
+            {
+                sumErr += deltaOutput[k] * _w2[j][k];
+            }
+            double dActivation = hiddenNet[j] >= 0.0 ? 1.0 : LeakySlope;
+            deltaHidden[j] = sumErr * dActivation;
+            gradB1[j] = deltaHidden[j];
+        }
+
+        for (int i = 0; i < _inputSize; i++)
+        {
+            for (int j = 0; j < _hiddenSize; j++)
+            {
+                gradW1[i][j] = deltaHidden[j] * input[i];
+            }
+        }
+    }
+
+    // Методи доступу до ваг для тестування скінченних різниць
+    public double GetWeightW1(int i, int j) => _w1[i][j];
+    public void SetWeightW1(int i, int j, double value) => _w1[i][j] = value;
+    public double GetWeightW2(int j, int k) => _w2[j][k];
+    public void SetWeightW2(int j, int k, double value) => _w2[j][k] = value;
 }
