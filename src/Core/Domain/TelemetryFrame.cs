@@ -16,6 +16,9 @@ public readonly record struct TelemetryFrame(
 
     public void WriteTo(Span<byte> destination)
     {
+        if (destination.Length < SizeInBytes)
+            throw new ArgumentException($"Цільовий буфер закороткий: очікується щонайменше {SizeInBytes} байтів.");
+
         BinaryPrimitives.WriteUInt32BigEndian(destination.Slice(0, 4), TimestampMs);
         BinaryPrimitives.WriteInt16BigEndian(destination.Slice(4, 2), AltitudeDm);
         BinaryPrimitives.WriteInt16BigEndian(destination.Slice(6, 2), TempC10);
@@ -26,6 +29,10 @@ public readonly record struct TelemetryFrame(
 
     public static TelemetryFrame ReadFrom(ReadOnlySpan<byte> source)
     {
+        //Перевірка фіксованого розміру для запобігання IndexOutOfRangeException
+        if (source.Length != SizeInBytes)
+            throw new ArgumentException($"Розмір кадру має бути рівно {SizeInBytes} байтів, отримано {source.Length}.");
+
         var frame = new TelemetryFrame(
             BinaryPrimitives.ReadUInt32BigEndian(source.Slice(0, 4)),
             BinaryPrimitives.ReadInt16BigEndian(source.Slice(4, 2)),

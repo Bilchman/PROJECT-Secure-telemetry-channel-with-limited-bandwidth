@@ -1,0 +1,4 @@
+Actual\Predicted,Class_0_Normal,Class_1_Anomaly,Class_2_Transient
+Class_0_Normal,4,0,0
+Class_1_Anomaly,0,3,0
+Class_2_Transient,0,0,5

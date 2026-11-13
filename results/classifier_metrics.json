@@ -1,0 +1,38 @@
+{
+  "selected_seed": 28,
+  "macro_f1": 1,
+  "classes": {
+    "normal": {
+      "precision": 1,
+      "recall": 1,
+      "f1": 1
+    },
+    "anomaly": {
+      "precision": 1,
+      "recall": 1,
+      "f1": 1
+    },
+    "transient": {
+      "precision": 1,
+      "recall": 1,
+      "f1": 1
+    }
+  },
+  "confusion_matrix": [
+    [
+      4,
+      0,
+      0
+    ],
+    [
+      0,
+      3,
+      0
+    ],
+    [
+      0,
+      0,
+      5
+    ]
+  ]
+}
