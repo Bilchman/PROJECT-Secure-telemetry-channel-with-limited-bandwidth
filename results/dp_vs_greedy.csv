@@ -1,0 +1,3 @@
+algorithm,total_value,time_ms,diff_percent
+dp,39710,67.08,+0.00%
+greedy,39710,3.17,0.00%

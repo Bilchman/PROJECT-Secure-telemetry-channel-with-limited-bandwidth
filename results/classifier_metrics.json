@@ -1,0 +1,38 @@
+{
+  "selected_seed": 1101,
+  "macro_f1": 0.7763,
+  "classes": {
+    "normal": {
+      "precision": 0.9398,
+      "recall": 0.9001,
+      "f1": 0.9195
+    },
+    "anomaly": {
+      "precision": 1,
+      "recall": 0.7624,
+      "f1": 0.8652
+    },
+    "transient": {
+      "precision": 0.4558,
+      "recall": 0.6751,
+      "f1": 0.5442
+    }
+  },
+  "confusion_matrix": [
+    [
+      1405,
+      0,
+      156
+    ],
+    [
+      13,
+      154,
+      35
+    ],
+    [
+      77,
+      0,
+      160
+    ]
+  ]
+}
