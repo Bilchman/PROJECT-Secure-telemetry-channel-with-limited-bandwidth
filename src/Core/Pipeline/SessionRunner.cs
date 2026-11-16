@@ -129,47 +129,27 @@ public sealed class SessionRunner : IDisposable
 
             // 4. W = 8 * (max_payload_bytes - 14 - 2 * table_nsym)
             int capacityBits = 8 * (maxPayloadBytes - PacketPayload.HeaderSize - 2 * table.TableNSym);
-            if (capacityBits <= 0)
+            bool forceNoCompression = _compressor is NoCompression || table.Entries.Count == 0 || capacityBits <= 0;
+
+            List<FrameCandidate> candidates = BuildCandidates(window, windowBytes, table, forceNoCompression);
+            int activeCapacityBits = forceNoCompression
+                ? 8 * (maxPayloadBytes - PacketPayload.HeaderSize)
+                : capacityBits;
+
+            // 5. Вибір кадрів пакувальником
+            var selectedIndices = activeCapacityBits > 0
+                ? _packer.SelectFrames(candidates, activeCapacityBits)
+                : Array.Empty<int>();
+
+            // Якщо навіть 1 кадр не вліз через велику таблицю Гаффмана -> свідома відмова від стиснення (C2.5)
+            if (selectedIndices.Count == 0 && !forceNoCompression)
             {
-                break;
+                forceNoCompression = true;
+                activeCapacityBits = 8 * (maxPayloadBytes - PacketPayload.HeaderSize);
+                candidates = BuildCandidates(window, windowBytes, table, useRawWeights: true);
+                selectedIndices = _packer.SelectFrames(candidates, activeCapacityBits);
             }
 
-            int[] lengths = new int[256];
-            if (_compressor is NoCompression || table.Entries.Count == 0)
-            {
-                Array.Fill(lengths, 8);
-            }
-            else
-            {
-                foreach (var (sym, len) in table.Entries)
-                {
-                    lengths[sym] = len;
-                }
-            }
-
-            // 5. Формування кандидатів за вагою w_i та цінністю v_i з team_config.json
-            var candidates = new List<FrameCandidate>(window.Count);
-            for (int j = 0; j < window.Count; j++)
-            {
-                int weightBits = 0;
-                int offset = j * TelemetryFrame.SizeInBytes;
-                for (int b = 0; b < TelemetryFrame.SizeInBytes; b++)
-                {
-                    weightBits += lengths[windowBytes[offset + b]];
-                }
-
-                int value = PerceptronClassifier.CalculateFrameValue(
-                    window[j].Class,
-                    window[j].Frame.Critical,
-                    _config.FramePriorities,
-                    _config.CriticalBonus
-                );
-
-                candidates.Add(new FrameCandidate(j, weightBits, value));
-            }
-
-            // 6. Вибір кадрів пакувальником
-            var selectedIndices = _packer.SelectFrames(candidates, capacityBits);
             if (selectedIndices.Count == 0)
             {
                 break;
@@ -183,27 +163,53 @@ public sealed class SessionRunner : IDisposable
             // Необрані кадри вікна залишаються в черзі на наступну ітерацію
             queue.RemoveAll(item => chosenGlobalIds.Contains(item.GlobalIndex));
 
-            // 7. Стиснення обраних кадрів ТІЄЮ САМОЮ таблицею
+            // 6. Серіалізація обраних кадрів
             var rawBytes = new byte[selectedFrames.Count * TelemetryFrame.SizeInBytes];
             for (int j = 0; j < selectedFrames.Count; j++)
             {
                 selectedFrames[j].WriteTo(rawBytes.AsSpan(j * TelemetryFrame.SizeInBytes, TelemetryFrame.SizeInBytes));
             }
 
-            var bitstream = _compressor.Compress(rawBytes, table);
+            byte flags;
+            CodeTable payloadTable;
+            byte[] bitstream;
 
-            // 8. Payload (CLASS_TABLE = 0 під час задачі пакування)
-            byte flags = _compressor is NoCompression ? (byte)0x08 : (byte)0x00;
+            if (forceNoCompression)
+            {
+                flags = 0x08;
+                payloadTable = new CodeTable { Entries = Array.Empty<(byte, byte)>() };
+                bitstream = rawBytes;
+            }
+            else
+            {
+                bitstream = _compressor.Compress(rawBytes, table);
+
+                // Кейс C2.5: якщо стиснення + таблиця більші за сирі байти і сирі байти вміщаються в пакет -> відмова від стиснення
+                if (bitstream.Length + 2 * table.TableNSym >= rawBytes.Length &&
+                    rawBytes.Length <= maxPayloadBytes - PacketPayload.HeaderSize)
+                {
+                    flags = 0x08;
+                    payloadTable = new CodeTable { Entries = Array.Empty<(byte, byte)>() };
+                    bitstream = rawBytes;
+                }
+                else
+                {
+                    flags = 0x00;
+                    payloadTable = table;
+                }
+            }
+
+            // 7. Payload
             var payload = new PacketPayload(
                 FrameCount: (ushort)selectedFrames.Count,
                 Flags: flags,
-                Table: table,
+                Table: payloadTable,
                 SymbolCount: (uint)(selectedFrames.Count * TelemetryFrame.SizeInBytes),
                 Bitstream: bitstream
             );
             byte[] payloadBytes = payload.Serialize();
 
-            // 9. Nonce = 8 байтів сеансу || uint32_BE(packet_seq)
+            // 8. Nonce = 8 байтів сеансу || uint32_BE(packet_seq)
             byte[] nonce = new byte[12];
             sessionNoncePrefix.CopyTo(nonce.AsSpan(0, 8));
             BinaryPrimitives.WriteUInt32BigEndian(nonce.AsSpan(8, 4), packetSeq);
@@ -223,7 +229,7 @@ public sealed class SessionRunner : IDisposable
             ));
         }
 
-        // 10. Планування черги і передача через еталонний channel.py
+        // 9. Планування черги і передача через еталонний channel.py
         var packetsToSend = _scheduler.OrderPackets(preparedPackets);
 
         foreach (var packet in packetsToSend)
@@ -247,10 +253,7 @@ public sealed class SessionRunner : IDisposable
             if (code != RejectionCode.None || parsedPayload == null)
                 continue;
 
-            byte[] decodedBytes = _compressor.Decompress(
-                parsedPayload.Bitstream,
-                parsedPayload.Table,
-                (int)parsedPayload.SymbolCount);
+            byte[] decodedBytes = (parsedPayload.Flags & 0x08) != 0 ? parsedPayload.Bitstream : _compressor.Decompress(parsedPayload.Bitstream, parsedPayload.Table, (int)parsedPayload.SymbolCount);
 
             for (int j = 0; j < decodedBytes.Length / TelemetryFrame.SizeInBytes; j++)
             {
@@ -305,5 +308,44 @@ public sealed class SessionRunner : IDisposable
         {
             disposable.Dispose();
         }
+    }
+
+    private List<FrameCandidate> BuildCandidates(
+        List<(int GlobalIndex, TelemetryFrame Frame, FrameClass Class)> window,
+        byte[] windowBytes, CodeTable table, bool useRawWeights)
+    {
+        int[] lengths = new int[256];
+        if (useRawWeights)
+        {
+            Array.Fill(lengths, 8);
+        }
+        else
+        {
+            foreach (var (sym, len) in table.Entries)
+            {
+                lengths[sym] = len;
+            }
+        }
+
+        var candidates = new List<FrameCandidate>(window.Count);
+        for (int j = 0; j < window.Count; j++)
+        {
+            int weightBits = 0;
+            int offset = j * TelemetryFrame.SizeInBytes;
+            for (int b = 0; b < TelemetryFrame.SizeInBytes; b++)
+            {
+                weightBits += lengths[windowBytes[offset + b]];
+            }
+
+            int value = PerceptronClassifier.CalculateFrameValue(
+                window[j].Class,
+                window[j].Frame.Critical,
+                _config.FramePriorities,
+                _config.CriticalBonus
+            );
+
+            candidates.Add(new FrameCandidate(j, weightBits, value));
+        }
+        return candidates;
     }
 }
