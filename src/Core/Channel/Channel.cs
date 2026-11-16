@@ -4,30 +4,44 @@ namespace Core
     {
         private readonly double _lossProbability;
         private readonly double _burstLengthB;
-        private readonly int _delayMs;
+        private readonly int _delayMinMs;
+        private readonly int _delayMaxMs;
         private readonly int _bandwidthBps;
         private readonly double _transmissionBudgetS;
-        
+
         private readonly Random _rng;
         private readonly double _pGb;
         private int _inBurst = 0;
         private double _clock = 0.0;
-        
+
         private int _sent = 0;
         private int _lost = 0;
         private int _overBudget = 0;
 
         public Channel(
-            double lossProbability, 
-            double burstLengthB, 
-            int delayMs, 
-            int bandwidthBps, 
-            double transmissionBudgetS, 
+            double lossProbability,
+            double burstLengthB,
+            int delayMs,
+            int bandwidthBps,
+            double transmissionBudgetS,
+            int seed)
+            : this(lossProbability, burstLengthB, delayMs, delayMs, bandwidthBps, transmissionBudgetS, seed)
+        {
+        }
+
+        public Channel(
+            double lossProbability,
+            double burstLengthB,
+            int delayMinMs,
+            int delayMaxMs,
+            int bandwidthBps,
+            double transmissionBudgetS,
             int seed)
         {
             _lossProbability = lossProbability;
             _burstLengthB = burstLengthB;
-            _delayMs = delayMs;
+            _delayMinMs = delayMinMs;
+            _delayMaxMs = delayMaxMs;
             _bandwidthBps = bandwidthBps;
             _transmissionBudgetS = transmissionBudgetS;
 
@@ -35,7 +49,7 @@ namespace Core
 
             if (_lossProbability > 0)
             {
-                _pGb = _lossProbability / 
+                _pGb = _lossProbability /
                        (_lossProbability + _burstLengthB * (1.0 - _lossProbability));
             }
             else
@@ -88,7 +102,11 @@ namespace Core
                 return new ChannelResult(Delivered: false, ArrivalTimeSec: -1.0, DroppedByBudget: false);
             }
 
-            double arrivalTime = _clock + (_delayMs / 1000.0);
+            double delayMs = _delayMaxMs > _delayMinMs
+                ? _delayMinMs + _rng.NextDouble() * (_delayMaxMs - _delayMinMs)
+                : _delayMinMs;
+
+            double arrivalTime = _clock + (delayMs / 1000.0);
             return new ChannelResult(Delivered: true, ArrivalTimeSec: arrivalTime, DroppedByBudget: false);
         }
 

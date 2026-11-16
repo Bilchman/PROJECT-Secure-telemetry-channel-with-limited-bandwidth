@@ -1,129 +1,157 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Text;
 using Core;
+using Core.Prediction;
 
 Console.OutputEncoding = Encoding.UTF8;
 Console.WriteLine("=======================================================");
 Console.WriteLine("                  TelemetryLink CLI  ");
 Console.WriteLine("=======================================================");
 
-string csvPath = Path.Combine("data", "session.csv");
-if (!File.Exists(csvPath))
+static List<(double[] Features, int Label)> ExtractFeaturesChronologically(
+    IReadOnlyList<(TelemetryFrame Frame, int Label)> rows)
 {
-    string altPath = Path.Combine("..", "..", "..", "data", "session.csv");
-    if (File.Exists(altPath)) csvPath = altPath;
+    var extractor = new FeatureExtractor(FeatureExtractor.DefaultWindowSize);
+    var history = new List<TelemetryFrame>();
+    var dataset = new List<(double[] Features, int Label)>(rows.Count);
+
+    foreach (var (frame, label) in rows)
+    {
+        dataset.Add((extractor.ExtractFeatures(history, frame), label));
+        history.Add(frame);
+        if (history.Count > FeatureExtractor.DefaultWindowSize)
+        {
+            history.RemoveAt(0);
+        }
+    }
+
+    return dataset;
 }
 
-if (!File.Exists(csvPath))
+var totalRunSw = Stopwatch.StartNew();
+
+// 1. Завантаження team_config.json та шляхів до еталонних файлів
+string configPath = TeamConfig.FindRepoFile("team_config.json", Path.Combine("data", "team_config.json"));
+string trainPath = TeamConfig.FindRepoFile(Path.Combine("data", "train.csv"), "train.csv");
+string validPath = TeamConfig.FindRepoFile(Path.Combine("data", "valid.csv"), "valid.csv");
+string sessionPath = TeamConfig.FindRepoFile(Path.Combine("data", "session.csv"), "session.csv");
+string channelPyPath = TeamConfig.FindRepoFile("channel.py", Path.Combine("data", "channel.py"));
+
+var config = TeamConfig.Load(configPath);
+Console.WriteLine($"[+] Команда: {config.TeamId} | seed={config.TeamSeed} | t_ref={config.RefTimeSec}с | F1_min={config.F1Min:F2} | channel_seed={config.ChannelSeed}");
+
+// 2. Читання розмічених даних і навчання перцептрона за протоколом (80/20, 3 ініціалізації)
+var trainRaw = TelemetryReader.ReadLabeledCsv(trainPath);
+var validRaw = TelemetryReader.ReadLabeledCsv(validPath);
+var sessionLabeled = TelemetryReader.ReadLabeledCsv(sessionPath);
+Console.WriteLine($"[+] Завантажено кадрів -> train: {trainRaw.Count}, valid: {validRaw.Count}, session: {sessionLabeled.Count}");
+
+var trainDataset = ExtractFeaturesChronologically(trainRaw);
+var validDataset = ExtractFeaturesChronologically(validRaw);
+var sessionEvalDataset = ExtractFeaturesChronologically(sessionLabeled);
+
+var (trainSplit, innerValSplit) = Trainer.SplitData(trainDataset, trainRatio: 0.8, seed: config.TeamSeed);
+var trainer = new Trainer(FeatureExtractor.FeatureCount, hiddenSize: 16);
+
+var initSeeds = new int[config.Initializations];
+for (int i = 0; i < config.Initializations; i++)
 {
-    Console.ForegroundColor = ConsoleColor.Red;
-    Console.WriteLine($"[ПОМИЛКА] Файл даних {csvPath} не знайдено!");
-    Console.ResetColor();
-    return;
+    initSeeds[i] = config.TeamSeed + i * 100;
 }
 
-var frames = TelemetryReader.ReadCsv(csvPath);
-Console.WriteLine($"[+] Прочитано вхідних кадрів: {frames.Count}");
-Console.WriteLine("[*] Запуск симуляції на Аварійному каналі (15% втрат, B=3, бюджет 25.0 с)...");
+var (bestModel, innerMetrics) = trainer.TrainThreeSeeds(trainSplit, innerValSplit, initSeeds);
+var validMetrics = Trainer.Evaluate(bestModel, validDataset, innerMetrics.BestSeed);
+var sessionMetrics = Trainer.Evaluate(bestModel, sessionEvalDataset, innerMetrics.BestSeed);
 
-// Фабрика для створення ідентичного стану каналу для кожного прогону
-IChannel CreateEmergencyChannel() => new Channel(
-    lossProbability: 0.15,
-    burstLengthB: 3.0,
-    delayMs: 100,
-    bandwidthBps: 12000,
-    transmissionBudgetS: 25.0, // обмеження часу сеансу
-    seed: 42
-);
-
-// 1. Послідовний пакувальник (Sequential)
-var runnerSeq = new SessionRunner(CreateEmergencyChannel(), new Huffman(), new SequentialPacker(), new MajorityClassifier(), new NoSecurity(), new PriorityScheduler());
-var resSeq = runnerSeq.Run(frames);
-
-// 2. Жадібний пакувальник (Greedy)
-var runnerGreedy = new SessionRunner(CreateEmergencyChannel(), new Huffman(), new GreedyPacker(),  new MajorityClassifier(), new NoSecurity(), new PriorityScheduler());
-var resGreedy = runnerGreedy.Run(frames);
-
-// 3. Динамічне програмування (DP Knapsack)
-var runnerDp = new SessionRunner(CreateEmergencyChannel(), new Huffman(), new KnapsackPacker(),  new MajorityClassifier(), new NoSecurity(), new PriorityScheduler());
-var resDp = runnerDp.Run(frames);
+string resultsDir = "results";
+Trainer.SaveArtifacts(resultsDir, validMetrics);
 
 var report = new StringBuilder();
-
-void AppendDetailedReport(string packerName, SessionResult res)
+report.AppendLine("==================================================================================================");
+report.AppendLine("                           РЕЗУЛЬТАТИ ПЕРЦЕПТРОНА (VALID.CSV / SESSION.CSV)");
+report.AppendLine("==================================================================================================");
+report.AppendLine($"Найкращий seed ініціалізації: {validMetrics.BestSeed}");
+report.AppendLine($"Базові лінії з конфіга:       majority={config.BaselineMajorityF1:F4}, random={config.BaselineRandomF1:F4}");
+report.AppendLine($"Inner Val Macro-F1 (80/20):   {innerMetrics.MacroF1:F4}");
+report.AppendLine($"Open Valid Macro-F1:          {validMetrics.MacroF1:F4}  (поріг F1_min = {config.F1Min:F2}) -> {(validMetrics.MacroF1 >= config.F1Min ? "ПРОЙДЕНО" : "НЕ ПРОЙДЕНО")}");
+report.AppendLine($"Session Macro-F1 (діагн.):    {sessionMetrics.MacroF1:F4}");
+report.AppendLine($"  Valid F1 по класах: Normal(0)={validMetrics.F1PerClass[0]:F4}, Anomaly(1)={validMetrics.F1PerClass[1]:F4}, Transition(2)={validMetrics.F1PerClass[2]:F4}");
+report.AppendLine("Матриця помилок на valid.csv (рядки = факт, стовпці = прогноз):");
+for (int r = 0; r < 3; r++)
 {
-    report.AppendLine("=======================================================");
-    report.AppendLine($"       ЗВІТ СЕАНСУ: [{packerName.ToUpper()}] (АВАРІЙНИЙ КАНАЛ)");
-    report.AppendLine("=======================================================");
-    report.AppendLine($"Кількість переданих:    {res.TransmittedFrames} кадрів");
-    report.AppendLine($"Кількість відновлених:  {res.RestoredFrames} кадрів");
-    report.AppendLine($"Побайтовий збіг:        {(res.IsExactMatch ? "УСПІШНО (100%)" : "НЕ ЗБІГАЄТЬСЯ (через втрати в каналі)")}");
-    report.AppendLine("-------------------------------------------------------");
-    report.AppendLine($"B_ref (сирий обсяг):    {res.BRef} біт ({res.BRef / 8} байт)");
-    report.AppendLine($"B_sent (трафік каналу): {res.BSent} біт ({res.BSent / 8} байт)");
-    report.AppendLine($"Час роботи CPU (t):     {res.CpuTimeSec:F5} с");
-    report.AppendLine("-------------------------------------------------------");
-    report.AppendLine($"Ефективність (S):       {res.S:F4}");
-    report.AppendLine($"Надійність критичних(R):{res.R:F4}");
-    report.AppendLine($"Швидкодія (T):          {res.T:F4}");
-    report.AppendLine("-------------------------------------------------------");
-    report.AppendLine($"ПІДСУМКОВА МЕТРИКА Q:   {res.Q:F4}");
-    report.AppendLine("=======================================================");
-    report.AppendLine();
+    report.AppendLine($"  Клас {r}: {validMetrics.ConfusionMatrix[r][0],5} {validMetrics.ConfusionMatrix[r][1],5} {validMetrics.ConfusionMatrix[r][2],5}");
+}
+report.AppendLine();
+
+// 3. Запуск пайплайна без витоку міток
+var frames = TelemetryReader.ReadCsv(sessionPath);
+var predictor = new PerceptronClassifier(bestModel);
+
+string[] scenarioOrder = ["спокійний", "робочий", "аварійний"];
+
+report.AppendLine("==================================================================================================");
+report.AppendLine("              ПОРІВНЯННЯ ПАКУВАЛЬНИКІВ НА ЕТАЛОННОМУ КАНАЛІ (channel.py)");
+report.AppendLine("==================================================================================================");
+
+foreach (var scenarioName in scenarioOrder)
+{
+    var sc = config.Scenarios[scenarioName];
+    double maxCritLoss = config.CriticalLossThresholds[scenarioName];
+
+    report.AppendLine($"\n--- Сценарій: {scenarioName.ToUpper()} (loss={sc.LossProbability:P0}, B={sc.BurstLengthB}, delay={sc.DelayMinMs}..{sc.DelayMaxMs} мс, bw={sc.BandwidthBps} bps, budget={sc.TransmissionBudgetS} с, поріг втрати кр. <= {maxCritLoss:P0}) ---");
+    report.AppendLine(string.Format("{0,-13} | {1,-11} | {2,-8} | {3,-10} | {4,-9} | {5,-8} | {6,-8} | {7,-8} | {8}",
+        "Пакувальник", "Відновлено", "R", "Втрата кр.", "B_sent", "S", "T", "Q", "Статус / Поза бюдж."));
+    report.AppendLine(new string('-', 108));
+
+    IPacker[] packers = [new SequentialPacker(), new GreedyPacker(), new KnapsackPacker()];
+    foreach (var packer in packers)
+    {
+        using var channel = config.CreatePythonChannel(scenarioName, channelPyPath);
+        var runner = new SessionRunner(
+            channel: channel,
+            compressor: new Huffman(),
+            packer: packer,
+            predictor: predictor,
+            security: new NoSecurity(),
+            scheduler: new PriorityScheduler(),
+            config: config
+        );
+
+        var res = runner.Run(frames);
+        var stats = channel.GetStats();
+        int overBudget = Convert.ToInt32(stats["не_вміщено_в_бюджет"]);
+
+        double critLoss = 1.0 - res.R;
+        string status = critLoss <= maxCritLoss + 1e-9 ? "OK" : "ПЕРЕВИЩЕНО";
+
+        report.AppendLine(string.Format("{0,-13} | {1,-11} | {2,-8:F4} | {3,-10:P2} | {4,-9} | {5,-8:F4} | {6,-8:F4} | {7,-8:F4} | {8} (over={9})",
+            packer.Name, $"{res.RestoredFrames}/{res.TransmittedFrames}", res.R, critLoss, res.BSent, res.S, res.T, res.Q, status, overBudget));
+    }
 }
 
-AppendDetailedReport("Sequential", resSeq);
-AppendDetailedReport("Greedy", resGreedy);
-AppendDetailedReport("DP-Knapsack", resDp);
-
-// Підсумкова порівняльна таблиця (Таблиця 1 для звіту)
-report.AppendLine("=======================================================================================");
-report.AppendLine("                       ПОРІВНЯЛЬНА ТАБЛИЦЯ: АВАРІЙНИЙ КАНАЛ                            ");
-report.AppendLine("=======================================================================================");
-report.AppendLine(string.Format("{0,-15} | {1,-12} | {2,-14} | {3,-10} | {4,-10} | {5,-8}",
-    "Алгоритм", "Відновлено", "Надійність (R)", "Трафік (B)", "Час CPU (с)", "Метрика Q"));
-report.AppendLine("---------------------------------------------------------------------------------------");
-report.AppendLine(string.Format("{0,-15} | {1,-12} | {2,-14:F4} | {3,-10} | {4,-10:F4} | {5,-8:F4}",
-    "Sequential", $"{resSeq.RestoredFrames}/{resSeq.TransmittedFrames}", resSeq.R, resSeq.BSent, resSeq.CpuTimeSec, resSeq.Q));
-report.AppendLine(string.Format("{0,-15} | {1,-12} | {2,-14:F4} | {3,-10} | {4,-10:F4} | {5,-8:F4}",
-    "Greedy", $"{resGreedy.RestoredFrames}/{resGreedy.TransmittedFrames}", resGreedy.R, resGreedy.BSent, resGreedy.CpuTimeSec, resGreedy.Q));
-report.AppendLine(string.Format("{0,-15} | {1,-12} | {2,-14:F4} | {3,-10} | {4,-10:F4} | {5,-8:F4}",
-    "DP-Knapsack", $"{resDp.RestoredFrames}/{resDp.TransmittedFrames}", resDp.R, resDp.BSent, resDp.CpuTimeSec, resDp.Q));
-report.AppendLine("=======================================================================================");
+totalRunSw.Stop();
+report.AppendLine();
+report.AppendLine($"Повний час виконання програми: {totalRunSw.Elapsed.TotalSeconds:F3} с (ліміт: {config.MaxRunTimeSec} с)");
 
 Console.WriteLine(report.ToString());
 
-// Збереження результатів у каталог results/
 try
 {
-    string resultsDir = "results";
     if (!Directory.Exists(resultsDir))
     {
         Directory.CreateDirectory(resultsDir);
     }
 
-    string outputPath = Path.Combine(resultsDir, "emergency_comparison.txt");
+    string outputPath = Path.Combine(resultsDir, "full_pipeline_report.txt");
     File.WriteAllText(outputPath, report.ToString());
     Console.ForegroundColor = ConsoleColor.Green;
-    Console.WriteLine($"[OK] Результати збережено у: {Path.GetFullPath(outputPath)}");
+    Console.WriteLine($"[OK] Звіт збережено у: {Path.GetFullPath(outputPath)}");
     Console.ResetColor();
 }
 catch (Exception ex)
 {
     Console.WriteLine($"[ПОПЕРЕДЖЕННЯ] Не вдалося зберегти файл у results/: {ex.Message}");
 }
-
-
-
-
-//
-//
-// new Channel(
-//     lossProbability: 0.0,
-//     burstLengthB: 1.0,
-//     delayMs: 20,
-//     bandwidthBps: 64000,
-//     transmissionBudgetS: 1000.0,
-//     seed: 42
-// );
