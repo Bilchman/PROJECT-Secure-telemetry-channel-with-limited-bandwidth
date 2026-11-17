@@ -32,7 +32,7 @@ namespace Tests
             Assert.Equal(1.0, result.R);
             Assert.True(result.Q > 0, "Метрика Q повинна бути більшою за 0.");
         }
-        
+
         [Fact]
         public void Test_Case2_Empty_Stream_Does_Not_Crash()
         {

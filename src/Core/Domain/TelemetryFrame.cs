@@ -3,12 +3,12 @@ namespace Core;
 using System.Buffers.Binary;
 
 public readonly record struct TelemetryFrame(
-    uint  TimestampMs,
+    uint TimestampMs,
     short AltitudeDm,
     short TempC10,
     short Vibration,
-    byte  Mode,
-    byte  Critical)
+    byte Mode,
+    byte Critical)
 {
     public const int SizeInBytes = 12;
     public bool IsCritical => Critical == 1;

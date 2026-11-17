@@ -60,7 +60,7 @@ public class SecurityTests
     public void FIPS_197_AES_256_ECB_Known_Vector()
     {
         byte[] key = Convert.FromHexString("000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F");
-        byte[] pt  = Convert.FromHexString("00112233445566778899AABBCCDDEEFF");
+        byte[] pt = Convert.FromHexString("00112233445566778899AABBCCDDEEFF");
         byte[] exp = Convert.FromHexString("8EA2B7CA516745BFEAFC49904B496089");
 
         using var aes = Aes.Create();

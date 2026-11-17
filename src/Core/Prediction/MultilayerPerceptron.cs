@@ -82,7 +82,7 @@ public sealed class MultilayerPerceptron
         return probabilities;
     }
 
-   
+
     /// Внутрішній прямий прохід зі збереженням проміжних активацій для Backpropagation.
     private void ForwardInternal(
         double[] input,

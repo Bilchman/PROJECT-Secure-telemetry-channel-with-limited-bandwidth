@@ -1,16 +1,15 @@
 namespace Core;
 
 using System;
+using System.Collections.Generic;
 using System.Security.Cryptography;
 using System.Text;
 
 public static class KeyDerivation
 {
+    private const int MaxCacheEntries = 64;
     private static readonly object _cacheLock = new();
-    private static string? _cachedPassword;
-    private static byte[]? _cachedSalt;
-    private static byte[]? _cachedKEnc;
-    private static byte[]? _cachedKMac;
+    private static readonly Dictionary<string, (byte[] KEnc, byte[] KMac)> _cache = new();
 
     public static (byte[] KEnc, byte[] KMac) DeriveKeys(string password, byte[] salt)
     {
@@ -20,31 +19,37 @@ public static class KeyDerivation
             throw new ArgumentException("Salt must be 16 bytes", nameof(salt));
         }
 
+        string cacheKey = $"{password}\0{Convert.ToHexString(salt)}";
+
         lock (_cacheLock)
         {
-            if (_cachedPassword == password && _cachedSalt != null && _cachedSalt.AsSpan().SequenceEqual(salt))
+            if (_cache.TryGetValue(cacheKey, out var cached))
             {
-                return (_cachedKEnc!, _cachedKMac!);
+                return cached;
+            }
+        }
+
+        byte[] masterKey = Rfc2898DeriveBytes.Pbkdf2(
+            Encoding.UTF8.GetBytes(password),
+            salt,
+            100000,
+            HashAlgorithmName.SHA256,
+            64
+        );
+
+        byte[] kEnc = new byte[32];
+        byte[] kMac = new byte[32];
+        Array.Copy(masterKey, 0, kEnc, 0, 32);
+        Array.Copy(masterKey, 32, kMac, 0, 32);
+
+        lock (_cacheLock)
+        {
+            if (_cache.Count >= MaxCacheEntries)
+            {
+                _cache.Clear();
             }
 
-            byte[] masterKey = Rfc2898DeriveBytes.Pbkdf2(
-                Encoding.UTF8.GetBytes(password),
-                salt,
-                100000,
-                HashAlgorithmName.SHA256,
-                64
-            );
-
-            byte[] kEnc = new byte[32];
-            byte[] kMac = new byte[32];
-            Array.Copy(masterKey, 0, kEnc, 0, 32);
-            Array.Copy(masterKey, 32, kMac, 0, 32);
-
-            _cachedPassword = password;
-            _cachedSalt = (byte[])salt.Clone();
-            _cachedKEnc = kEnc;
-            _cachedKMac = kMac;
-
+            _cache[cacheKey] = (kEnc, kMac);
             return (kEnc, kMac);
         }
     }
@@ -53,10 +58,7 @@ public static class KeyDerivation
     {
         lock (_cacheLock)
         {
-            _cachedPassword = null;
-            _cachedSalt = null;
-            _cachedKEnc = null;
-            _cachedKMac = null;
+            _cache.Clear();
         }
     }
 }
