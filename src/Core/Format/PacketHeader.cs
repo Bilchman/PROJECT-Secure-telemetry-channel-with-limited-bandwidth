@@ -4,10 +4,10 @@ using System.Buffers.Binary;
 
 public sealed record PacketHeader(
     ushort DeviceId,
-    uint   PacketSeq,
+    uint PacketSeq,
     byte[] Salt,       // 16 байтів
     byte[] Nonce,      // 12 байтів
-    uint   CiphertextLen)
+    uint CiphertextLen)
 {
     public const int SizeInBytes = 43;
     public static readonly byte[] ExpectedMagic = [0x54, 0x4C, 0x4D, 0x31]; // "TLM1"

@@ -10,7 +10,7 @@ public class FormatSpecTests
     {
         // Приклад з розділу 7: timestamp=0, alt=1000, temp=215, vib=-3, mode=1, critical=1
         var frame = new TelemetryFrame(0, 1000, 215, -3, 1, 1);
-        
+
         var buffer = new byte[12];
         frame.WriteTo(buffer);
 
@@ -28,7 +28,7 @@ public class FormatSpecTests
     {
         // Приклад бітового потоку з розділу 7: 31 біт -> 0C E6 DF 90
         var writer = new BitWriter();
-        
+
         // Коди: 0, 0, 0, 0, 1100, 1110, 0, 1101, 101, 1111, 100, 100
         writer.WriteBits(0, 1);
         writer.WriteBits(0, 1);
