@@ -90,7 +90,7 @@ public sealed class SessionRunner : IDisposable
         byte[] sessionSalt = SecurityService.GenerateSalt();
         var (kEnc, kMac) = _security.DeriveKeys(_config.Password, sessionSalt);
 
-        // 1. Класифікація суцільного потоку один раз до пакування (збереження історії перцептрона)
+        // 1. Класифікація суцільного потоку один раз до пакування
         var classes = _predictor.Classify(inputFrames);
 
         // 2. Формування та пакування пакетів
@@ -173,7 +173,7 @@ public sealed class SessionRunner : IDisposable
                 packerSw.Stop();
             }
 
-            // Якщо таблиця зайняла майже весь пакет і жоден кадр не вліз — відмова від стиснення (C2.5)
+            // Якщо таблиця зайняла майже весь пакет і жоден кадр не вліз - відмова від стиснення
             if (selected.Count == 0 && !forceRaw)
             {
                 forceRaw = true;
