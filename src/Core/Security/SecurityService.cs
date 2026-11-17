@@ -41,7 +41,7 @@ public sealed class SecurityService : ISecurity
         }
 
         uint ciphertextLen = BinaryPrimitives.ReadUInt32BigEndian(rawPacket.Slice(39, 4));
-        int expectedLength = 43 + (int)ciphertextLen + 32;
+        long expectedLength = 43L + ciphertextLen + 32L;
 
         if (rawPacket.Length != expectedLength)
         {

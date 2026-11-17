@@ -111,7 +111,7 @@ namespace Tests
         //Перевірка коректності вилучення ознак на реальному сеансі телеметрії
         [Fact]
         public void FeatureExtractor_ProcessSessionCsv_ProducesValidFeaturesWithoutNaN()
-        {            
+        {
             string? currentDir = AppContext.BaseDirectory;
             string sessionPath = string.Empty;
 
@@ -428,27 +428,25 @@ namespace Tests
             Assert.NotNull(bestModel);
             Assert.True(bestMetrics.MacroF1 > 0.33, $"Macro-F1 {bestMetrics.MacroF1} мав перевищити baseline 0.33.");
 
-            // Assert 2 генерація машинних звітів у папку results/ репозиторію
-            string? currentDir = AppContext.BaseDirectory;
-            string repoRoot = string.Empty;
-            while (currentDir != null)
+            // Assert 2 генерація машинних звітів у тимчасову папку (щоб не затирати реальні results/)
+            string resultsDir = Path.Combine(Path.GetTempPath(), "TelemetryLinkPredictionTests", Guid.NewGuid().ToString("N"));
+            try
             {
-                if (Directory.Exists(Path.Combine(currentDir, "results")) || File.Exists(Path.Combine(currentDir, "TelemetryLink.sln")))
-                {
-                    repoRoot = currentDir;
-                    break;
-                }
-                currentDir = Directory.GetParent(currentDir)?.FullName;
+                Trainer.SaveArtifacts(resultsDir, bestMetrics);
+
+                string csvPath = Path.Combine(resultsDir, "confusion_matrix.csv");
+                string jsonPath = Path.Combine(resultsDir, "classifier_metrics.json");
+
+                Assert.True(File.Exists(csvPath), "Файл confusion_matrix.csv не було створено.");
+                Assert.True(File.Exists(jsonPath), "Файл classifier_metrics.json не було створено.");
             }
-
-            string resultsDir = Path.Combine(repoRoot, "results");
-            Trainer.SaveArtifacts(resultsDir, bestMetrics);
-
-            string csvPath = Path.Combine(resultsDir, "confusion_matrix.csv");
-            string jsonPath = Path.Combine(resultsDir, "classifier_metrics.json");
-
-            Assert.True(File.Exists(csvPath), "Файл confusion_matrix.csv не було створено.");
-            Assert.True(File.Exists(jsonPath), "Файл classifier_metrics.json не було створено.");
+            finally
+            {
+                if (Directory.Exists(resultsDir))
+                {
+                    Directory.Delete(resultsDir, recursive: true);
+                }
+            }
         }
 
         // Перевірка правила: якщо клас жодного разу не був передбачений і відсутній у вибірці, Precision + Recall == 0, а F1 обов'язково присвоюється 0.0 без ділення на нуль чи NaN.
@@ -471,7 +469,7 @@ namespace Tests
             Assert.All(metrics.F1PerClass, f1 => Assert.False(double.IsNaN(f1)));
         }
 
-        // Перевірка потокової класифікації кадру перцептроном через PerceptronClassifier        
+        // Перевірка потокової класифікації кадру перцептроном через PerceptronClassifier
         [Fact]
         public void PerceptronClassifier_Classify_AssignsValidFrameClasses()
         {

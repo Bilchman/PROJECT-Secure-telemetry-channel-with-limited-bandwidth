@@ -52,7 +52,7 @@ public sealed record PacketPayload(
         var frameCount = BinaryPrimitives.ReadUInt16BigEndian(source.Slice(0, 2));
         var flags = source[2];
         var reserved = source[3];
-        if (reserved != 0)
+        if (reserved != 0 || (flags & 0xF0) != 0 || (flags & 0x03) != 0)
             return (RejectionCode.E_PAYLOAD, null);
 
         var tableNsym = BinaryPrimitives.ReadUInt16BigEndian(source.Slice(4, 2));
@@ -67,18 +67,21 @@ public sealed record PacketPayload(
         {
             byte sym = source[offset++];
             byte len = source[offset++];
-            if (len > 15) return (RejectionCode.E_CODE, null);
+            if (len == 0 || len > 15) return (RejectionCode.E_CODE, null);
             entries.Add((sym, len));
         }
 
         var symbolCount = BinaryPrimitives.ReadUInt32BigEndian(source.Slice(offset, 4));
         offset += 4;
 
-        if (symbolCount != 12 * frameCount)
+        if (symbolCount != 12u * frameCount)
             return (RejectionCode.E_PAYLOAD, null);
 
         var bitstreamLen = BinaryPrimitives.ReadUInt32BigEndian(source.Slice(offset, 4));
         offset += 4;
+
+        if ((flags & 0x08) != 0 && (tableNsym != 0 || bitstreamLen != symbolCount))
+            return (RejectionCode.E_PAYLOAD, null);
 
         if (source.Length < offset + bitstreamLen)
             return (RejectionCode.E_PAYLOAD, null);
@@ -92,7 +95,11 @@ public sealed record PacketPayload(
             if (source.Length < offset + frameCount)
                 return (RejectionCode.E_PAYLOAD, null);
             classTable = source.Slice(offset, frameCount).ToArray();
+            offset += frameCount;
         }
+
+        if (offset != source.Length)
+            return (RejectionCode.E_PAYLOAD, null);
 
         var table = new CodeTable { Entries = entries };
         return (RejectionCode.None, new PacketPayload(frameCount, flags, table, symbolCount, bitstream, classTable));

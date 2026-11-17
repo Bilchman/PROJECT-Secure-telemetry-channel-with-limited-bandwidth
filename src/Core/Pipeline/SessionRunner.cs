@@ -5,6 +5,7 @@ using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Security.Cryptography;
 
 public readonly record struct SessionResult(
     int TransmittedFrames,
@@ -16,7 +17,9 @@ public readonly record struct SessionResult(
     double S,
     double R,
     double T,
-    double Q
+    double Q,
+    long DeliveredValue = 0,
+    double PackerTimeMs = 0.0
 );
 
 public sealed class SessionRunner : IDisposable
@@ -81,21 +84,21 @@ public sealed class SessionRunner : IDisposable
         if (inputFrames.Count == 0)
         {
             sw.Stop();
-            return new SessionResult(0, 0, true, 0, 0, sw.Elapsed.TotalSeconds, 1.0, 1.0, 1.0, 1.0);
+            return new SessionResult(0, 0, true, 0, 0, sw.Elapsed.TotalSeconds, 1.0, 1.0, 1.0, 1.0, 0, 0.0);
         }
 
-        byte[] sessionSalt = new byte[16];
+        byte[] sessionSalt = SecurityService.GenerateSalt();
         var (kEnc, kMac) = _security.DeriveKeys(_config.Password, sessionSalt);
 
         // 1. Класифікація суцільного потоку один раз до пакування (збереження історії перцептрона)
         var classes = _predictor.Classify(inputFrames);
 
         // 2. Формування та пакування пакетів
-        var preparedPackets = PackFrames(inputFrames, classes, sessionSalt, kEnc, kMac);
+        var (preparedPackets, packerTimeMs) = PackFrames(inputFrames, classes, sessionSalt, kEnc, kMac);
 
         // 3. Черга відправлення -> канал -> приймач
         var scheduledPackets = _scheduler.OrderPackets(preparedPackets);
-        var (restoredFrames, sentBits) = TransmitAndRestore(scheduledPackets, kEnc, kMac);
+        var (restoredFrames, sentBits, deliveredValue) = TransmitAndRestore(scheduledPackets, kEnc, kMac);
 
         sw.Stop();
         double cpuTime = sw.Elapsed.TotalSeconds;
@@ -113,10 +116,23 @@ public sealed class SessionRunner : IDisposable
         double T = _config.RefTimeSec / (_config.RefTimeSec + cpuTime);
         double Q = QualityMetric.Compute(refBits, sentBits, restoredCritical, totalCritical, _config.RefTimeSec, cpuTime, _config.Alpha, _config.Beta, _config.Gamma);
 
-        return new SessionResult(inputFrames.Count, restoredFrames.Count, isExactMatch, refBits, sentBits, cpuTime, S, R, T, Q);
+        return new SessionResult(
+            inputFrames.Count,
+            restoredFrames.Count,
+            isExactMatch,
+            refBits,
+            sentBits,
+            cpuTime,
+            S,
+            R,
+            T,
+            Q,
+            deliveredValue,
+            packerTimeMs
+        );
     }
 
-    private List<Packet> PackFrames(
+    private (List<Packet> Packets, double PackerTimeMs) PackFrames(
         IReadOnlyList<TelemetryFrame> inputFrames,
         FrameClass[] classes,
         byte[] sessionSalt,
@@ -131,9 +147,10 @@ public sealed class SessionRunner : IDisposable
         int rawPayloadLimit = maxPayloadBytes - PacketPayload.HeaderSize;
         int rawCapacityBits = 8 * rawPayloadLimit;
 
-        byte[] sessionNoncePrefix = [0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08];
+        byte[] sessionNoncePrefix = RandomNumberGenerator.GetBytes(8);
         var queue = inputFrames.Select((frame, idx) => (GlobalIndex: idx, Frame: frame, Class: classes[idx])).ToList();
         var packets = new List<Packet>();
+        var packerSw = new Stopwatch();
         uint packetSeq = 0;
 
         while (queue.Count > 0)
@@ -148,14 +165,22 @@ public sealed class SessionRunner : IDisposable
             var candidates = BuildCandidates(window, windowBytes, table, forceRaw, criticalBonus);
             int capacityBits = forceRaw ? rawCapacityBits : huffmanCapacityBits;
 
-            var selected = capacityBits > 0 ? _packer.SelectFrames(candidates, capacityBits) : Array.Empty<int>();
+            IReadOnlyList<int> selected = Array.Empty<int>();
+            if (capacityBits > 0)
+            {
+                packerSw.Start();
+                selected = _packer.SelectFrames(candidates, capacityBits);
+                packerSw.Stop();
+            }
 
-            // Якщо таблиця зайняла майже весь пакет і жоден кадр не вліз то відмова від стиснення
+            // Якщо таблиця зайняла майже весь пакет і жоден кадр не вліз — відмова від стиснення (C2.5)
             if (selected.Count == 0 && !forceRaw)
             {
                 forceRaw = true;
                 candidates = BuildCandidates(window, windowBytes, table, useRawWeights: true, criticalBonus);
+                packerSw.Start();
                 selected = _packer.SelectFrames(candidates, rawCapacityBits);
+                packerSw.Stop();
             }
 
             if (selected.Count == 0)
@@ -191,9 +216,7 @@ public sealed class SessionRunner : IDisposable
             );
             byte[] payloadBytes = payload.Serialize();
 
-            byte[] nonce = new byte[12];
-            sessionNoncePrefix.CopyTo(nonce.AsSpan(0, 8));
-            BinaryPrimitives.WriteUInt32BigEndian(nonce.AsSpan(8, 4), packetSeq);
+            byte[] nonce = CipherService.CreateNonce(sessionNoncePrefix, packetSeq);
 
             var header = new PacketHeader(1, packetSeq++, sessionSalt, nonce, (uint)payloadBytes.Length);
             byte[] packetBytes = _security.Protect(header, payloadBytes, kEnc, kMac);
@@ -201,16 +224,17 @@ public sealed class SessionRunner : IDisposable
             packets.Add(new Packet(header.PacketSeq, packetBytes, selectedGlobalIds, packetValue));
         }
 
-        return packets;
+        return (packets, packerSw.Elapsed.TotalMilliseconds);
     }
 
-    private (List<TelemetryFrame> Restored, long SentBits) TransmitAndRestore(
+    private (List<TelemetryFrame> Restored, long SentBits, long DeliveredValue) TransmitAndRestore(
         IReadOnlyList<Packet> packets,
         byte[] kEnc,
         byte[] kMac)
     {
         var restored = new List<TelemetryFrame>();
         long sentBits = 0;
+        long deliveredValue = 0;
 
         foreach (var packet in packets)
         {
@@ -237,9 +261,11 @@ public sealed class SessionRunner : IDisposable
             {
                 restored.Add(TelemetryFrame.ReadFrom(decodedBytes.AsSpan(j * TelemetryFrame.SizeInBytes, TelemetryFrame.SizeInBytes)));
             }
+
+            deliveredValue += packet.Value;
         }
 
-        return (restored, sentBits);
+        return (restored, sentBits, deliveredValue);
     }
 
     private List<FrameCandidate> BuildCandidates(
