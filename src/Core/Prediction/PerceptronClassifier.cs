@@ -1,4 +1,5 @@
 ﻿namespace Core;
+
 using Core.Prediction;
 using System;
 using System.Collections.Generic;

@@ -2,7 +2,7 @@ namespace Core;
 
 public sealed class NoSecurity : ISecurity
 {
-    public (byte[] KEnc, byte[] KMac) DeriveKeys(string password, byte[] salt) => 
+    public (byte[] KEnc, byte[] KMac) DeriveKeys(string password, byte[] salt) =>
         (new byte[32], new byte[32]);
 
     public byte[] Protect(PacketHeader header, byte[] payloadPlaintext, byte[] kEnc, byte[] kMac)

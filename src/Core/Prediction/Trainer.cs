@@ -31,7 +31,7 @@ public sealed class Trainer
         _hiddenSize = hiddenSize;
     }
 
-    
+
     // Розбиває вхідні дані на навчальну та валідаційну частини (пункт 4.12)
     public static (List<(double[] Features, int Label)> Train, List<(double[] Features, int Label)> Validation)
         SplitData(IReadOnlyList<(double[] Features, int Label)> dataset, double trainRatio = 0.8, int seed = 42)

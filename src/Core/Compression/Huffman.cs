@@ -6,7 +6,7 @@ namespace Core
     public class Huffman : ICompressor
     {
         public string Name => "huffman";
-        
+
         /// Побудова таблиці канонічних довжин кодів.
         public CodeTable BuildTable(ReadOnlySpan<byte> data)
         {

@@ -39,7 +39,6 @@ public static class TelemetryReader
         return frames;
     }
 
-    // «читуЇ train.csv, valid.csv або session.csv разом ≥з 7-ю колонкою label (0, 1, 2)
     public static List<(TelemetryFrame Frame, int Label)> ReadLabeledCsv(string filePath)
     {
         var result = new List<(TelemetryFrame, int)>();
@@ -77,7 +76,6 @@ public static class TelemetryReader
         return result;
     }
 
-    // «читуЇ пот≥к кадр≥в ≥з б≥нарного файлу/потоку (12 байт≥в на кадр).
     public static List<TelemetryFrame> ReadBinary(Stream stream)
     {
         ArgumentNullException.ThrowIfNull(stream);

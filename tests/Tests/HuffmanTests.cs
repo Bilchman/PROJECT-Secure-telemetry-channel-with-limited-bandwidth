@@ -16,8 +16,8 @@ namespace Tests
             // Arrange: еталонний кадр телеметрії
             // 00 00 00 00 03 E8 00 D7 FF FD 01 01 (12 байтів)
             var compressor = new Huffman();
-            byte[] frame = new byte[] { 
-                0x00, 0x00, 0x00, 0x00, 0x03, 0xE8, 0x00, 0xD7, 0xFF, 0xFD, 0x01, 0x01 
+            byte[] frame = new byte[] {
+                0x00, 0x00, 0x00, 0x00, 0x03, 0xE8, 0x00, 0xD7, 0xFF, 0xFD, 0x01, 0x01
             };
             byte[] expectedBitstream = new byte[] { 0x0C, 0xE6, 0xDF, 0x90 };
 
@@ -68,12 +68,12 @@ namespace Tests
             // при однаковій довжині символи з меншим числовим значенням
             // отримують чисельно менший код (0x01 отримує 100, 0xFF отримує 101)
             var compressor = new Huffman();
-            byte[] frame = new byte[] { 
-                0x00, 0x00, 0x00, 0x00, 0x03, 0xE8, 0x00, 0xD7, 0xFF, 0xFD, 0x01, 0x01 
+            byte[] frame = new byte[] {
+                0x00, 0x00, 0x00, 0x00, 0x03, 0xE8, 0x00, 0xD7, 0xFF, 0xFD, 0x01, 0x01
             };
 
             var table = compressor.BuildTable(frame);
-            
+
             // Якщо канонізація відпрацює некоректно, стиснутий потік не зійдеться з еталоном
             var compressed = compressor.Compress(frame, table);
             Assert.Equal(new byte[] { 0x0C, 0xE6, 0xDF, 0x90 }, compressed);
@@ -179,7 +179,7 @@ namespace Tests
         {
             var compressor = new Huffman();
             byte[] frame = new byte[] { 0x00, 0x00, 0x00, 0x00, 0x03, 0xE8, 0x00, 0xD7, 0xFF, 0xFD, 0x01, 0x01 };
-            
+
             var table = compressor.BuildTable(frame);
             var compressed = compressor.Compress(frame, table);
 

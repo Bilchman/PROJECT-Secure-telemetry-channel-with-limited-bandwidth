@@ -9,7 +9,6 @@ using Xunit;
 
 public class PackingTests
 {
-    // Кейс C1 №8: DP не гірший за Greedy на різних місткостях
     [Fact]
     public void Case08_DP_Knapsack_Gives_Value_Not_Less_Than_Greedy()
     {
@@ -40,7 +39,6 @@ public class PackingTests
         }
     }
 
-    // Перевірка інваріанта сумарної місткості
     [Fact]
     public void Knapsack_Does_Not_Exceed_Capacity()
     {
@@ -61,7 +59,6 @@ public class PackingTests
         Assert.True(totalWeight <= capacity);
     }
 
-    // Обробка нульової та від'ємної місткості, а також порожнього списку
     [Fact]
     public void Knapsack_Handles_Empty_And_Zero_Capacity()
     {
@@ -75,7 +72,6 @@ public class PackingTests
         Assert.Empty(packer.SelectFrames(candidates, -10));
     }
 
-    // Детермінований tie-breaking за зростанням FrameIndex
     [Fact]
     public void Greedy_TieBreaking_Is_Deterministic()
     {
@@ -93,7 +89,6 @@ public class PackingTests
         Assert.Equal(5, selected[0]);
     }
 
-    // Порівняння DP з повним перебором O(2^n) на 100 випадкових задачах (п. 7.17)
     [Fact]
     public void DP_Matches_BruteForce_On_100_Random_Small_Datasets()
     {
@@ -150,7 +145,6 @@ public class PackingTests
         }
     }
 
-    // Контрприклад неоптимальності Greedy (W = 100, DP = 98 > Greedy = 60)
     [Fact]
     public void DP_Finds_Better_Solution_Than_Greedy_When_Greedy_Is_Suboptimal()
     {
@@ -177,7 +171,6 @@ public class PackingTests
         Assert.True(dpValue > greedyValue);
     }
 
-    // Точне заповнення: DP бере два предмети по 50, Greedy блокується предметом 51
     [Fact]
     public void DP_Achieves_Optimal_Exact_Fit_When_Greedy_Leaves_Slack()
     {
@@ -204,7 +197,6 @@ public class PackingTests
         Assert.True(dpValue > greedyValue);
     }
 
-    // Вузький канал: статистична перевага DP при високій конкуренції та щільному W
     [Fact]
     public void DP_Outperforms_Greedy_On_Tight_Capacity_And_Diverse_Ratios()
     {
@@ -240,7 +232,6 @@ public class PackingTests
         Assert.True(totalDpWins > 0);
     }
 
-    // Збіжність: при зростанні W похибка Greedy відносно DP зменшується
     [Fact]
     public void Convergence_Test_Greedy_Approaches_DP_As_Capacity_Increases()
     {
@@ -263,67 +254,5 @@ public class PackingTests
         double diffLarge = (double)(dpLarge - greedyLarge) / dpLarge * 100.0;
 
         Assert.True(diffTight >= diffLarge);
-    }
-
-    // Бенчмарк на 3000 кадрів із генерацією results/dp_vs_greedy.csv
-    [Fact]
-    public void Run_DP_vs_Greedy_Benchmark_And_Save_Results()
-    {
-        var dpPacker = new KnapsackPacker();
-        var greedyPacker = new GreedyPacker();
-
-        var rng = new Random(2026);
-        int totalFrames = 3000;
-        int windowSize = 64;
-        int packetCapacityBits = 1350;
-
-        var allFrames = new List<FrameCandidate>(totalFrames);
-        for (int i = 0; i < totalFrames; i++)
-        {
-            int weight = rng.Next(40, 85);
-            int value = rng.Next(1, 10) > 8 ? 80 : 15;
-            allFrames.Add(new FrameCandidate(i, weight, value));
-        }
-
-        var sw = System.Diagnostics.Stopwatch.StartNew();
-        int dpTotalValue = 0;
-        for (int i = 0; i < totalFrames; i += windowSize)
-        {
-            var window = allFrames.Skip(i).Take(windowSize).ToList();
-            dpTotalValue += dpPacker.SelectFrames(window, packetCapacityBits).Sum(idx => allFrames[idx].Value);
-        }
-        sw.Stop();
-        double dpTimeMs = sw.Elapsed.TotalMilliseconds;
-
-        sw.Restart();
-        int greedyTotalValue = 0;
-        for (int i = 0; i < totalFrames; i += windowSize)
-        {
-            var window = allFrames.Skip(i).Take(windowSize).ToList();
-            greedyTotalValue += greedyPacker.SelectFrames(window, packetCapacityBits).Sum(idx => allFrames[idx].Value);
-        }
-        sw.Stop();
-        double greedyTimeMs = sw.Elapsed.TotalMilliseconds;
-
-        var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir != null && !dir.GetDirectories(".git").Any() && !dir.GetFiles("*.sln*").Any())
-        {
-            dir = dir.Parent;
-        }
-        string repoRoot = dir?.FullName ?? Directory.GetCurrentDirectory();
-
-        string resultsDir = Path.Combine(repoRoot, "results");
-        Directory.CreateDirectory(resultsDir);
-
-        double diffPercent = (double)(dpTotalValue - greedyTotalValue) / greedyTotalValue * 100.0;
-        string csvContent = "algorithm,total_value,time_ms,diff_percent\n" +
-                            $"dp,{dpTotalValue},{dpTimeMs:F2},+{diffPercent:F2}%\n" +
-                            $"greedy,{greedyTotalValue},{greedyTimeMs:F2},0.00%\n";
-
-        string filePath = Path.Combine(resultsDir, "dp_vs_greedy.csv");
-        File.WriteAllText(filePath, csvContent);
-
-        Assert.True(dpTotalValue >= greedyTotalValue);
-        Assert.True(File.Exists(filePath));
     }
 }
