@@ -134,6 +134,9 @@ public class GeneticOptimizer : IOptimizer
     // Рівномірний кросовер по 3 генах.
     private SystemParameters Crossover(SystemParameters p1, SystemParameters p2)
     {
+        if (_random.NextDouble() >= _crossoverRate)
+            return p1;
+
         var window = _random.Next(2) == 0 ? p1.WindowFrames : p2.WindowFrames;
         var threshold = _random.Next(2) == 0 ? p1.CompressionThreshold : p2.CompressionThreshold;
         var weight = _random.Next(2) == 0 ? p1.CriticalWeight : p2.CriticalWeight;
