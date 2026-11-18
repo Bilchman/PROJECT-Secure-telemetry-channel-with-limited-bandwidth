@@ -288,7 +288,7 @@ double EvaluateEmergencyQ(SystemParameters p)
 }
 
 const int popSize = 10;
-const int budget = 80;
+const int budget = 160;
 
 Console.WriteLine($"[*] Запуск Генетичного алгоритму (pop={popSize}, budget={budget})...");
 var ga = new GeneticOptimizer(populationSize: popSize, tournamentSize: 2, mutationRate: 0.35, seed: config.TeamSeed);
